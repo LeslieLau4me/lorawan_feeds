@@ -11,7 +11,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_URL:=https://codeload.github.com/LXGMAX/sx1302_hal_wrt/tar.gz/V$(PKG_VERSION)?
 PKG_SOURCE:=sx1302_hal_wrt-$(PKG_VERSION).tar.gz
-PKG_HASH:=55dca4619e3dea080730257169f0dffea823c6ed624c2fdf38a5591ebcf4df51
+PKG_HASH:=d3824f2b0401cfe0dbfd0fdcbd3612b9af2d3e94509d67f96d072acd835219ed
 
 #PKG_SOURCE_PROTO:=git
 #PKG_SOURCE_URL:=https://github.com/LXGMAX/sx1302_hal_wrt
