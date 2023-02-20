@@ -229,6 +229,9 @@ process_config() {
 	config_foreach parse_station station
 	json_dump -i > /tmp/basicstation/station.conf
 	config_foreach parse_auth auth
+
+	cp /etc/basicstation/reset_lgw.sh /tmp/basicstation/
+	cp /etc/basicstation/reset_lgw.sh /tmp/basicstation/
 }
 
 service_triggers() {
