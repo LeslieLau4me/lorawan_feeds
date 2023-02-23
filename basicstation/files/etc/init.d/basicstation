@@ -13,7 +13,7 @@ USE_PROCD=1
 #radioconf
 DEFAULT_COMIF='spi'
 DEFAULT_DEVPATH='/dev/spidev1.0'
-DEFAULT_PPS=0
+DEFAULT_PPS=1
 DEFAULT_PUBLIC=1
 DEFAULT_CLKSRC=0
 DEFAULT_RADIO_0='rfconf0'
@@ -40,7 +40,7 @@ DEFAULT_PA_GAIN=0
 DEFAULT_PWR_IDX=0
 
 #station
-DEFAULT_RADIO_INIT=''
+DEFAULT_RADIO_INIT='rinit.sh'
 DEFAULT_ID_GEN_IF='eth0'
 DEFAULT_ROUTER_ID='/sys/class/net/eth0/address'
 DEFAULT_LOG_FILE='/tmp/basicstation/log'
@@ -231,7 +231,8 @@ process_config() {
 	config_foreach parse_auth auth
 
 	cp /etc/basicstation/reset_lgw.sh /tmp/basicstation/
-	cp /etc/basicstation/reset_lgw.sh /tmp/basicstation/
+	cp /etc/basicstation/rinit.sh /tmp/basicstation/
+	cp /etc/basicstation/tc.trust /tmp/basicstation/
 }
 
 service_triggers() {
