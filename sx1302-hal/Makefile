@@ -27,7 +27,7 @@ define Package/sx1302_hal
   SECTION:=net
   CATEGORY:=Network
   SUBMENU:=LoRaWAN
-  TITLE:=SX1302/SX1303 HAL
+  TITLE:=Origin SX1302/SX1303 HAL
   DEPENDS:=+kmod-spi-dev
 endef
 
