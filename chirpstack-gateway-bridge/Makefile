@@ -1,14 +1,14 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=chirpstack-gateway-bridge
-PKG_VERSION:=3.4.1
+PKG_VERSION:=4.0.6
 PKG_RELEASE:=1
 
 PKG_SOURCE_URL:=https://codeload.github.com/brocaar/chirpstack-gateway-bridge/tar.gz/v$(PKG_VERSION)?
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 
-PKG_HASH:=8ae9e34c55ea776a780cb24f748c9eff0a1bc3dc522e25e89142ea554aacaca8
-PKG_MAINTAINER:=Xue Liu <liuxuenetmail@gmail.com>
+PKG_HASH:=22e8865745893f25e426b281663bb451600bea325fd2239764a171af00a79435
+PKG_MAINTAINER:=Jacky Guo <leickwell@gmail.com>
 PKG_LICENSE:MIT
 PKG_LICENSE_FILES:=LICENSE
 
