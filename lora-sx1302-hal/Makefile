@@ -88,7 +88,7 @@ define Package/sx1302_hal_wrt/install
 	chmod +x $(1)/usr/bin/reset_lgw.sh
 
 	$(INSTALL_DIR) $(1)/etc/init.d/
-        $(INSTALL_BIN) $(PKG_BUILD_DIR)/files/packet_forwarder $(1)/etc/init.d/packet_forwarder
+	$(INSTALL_DATA) ./files/etc/init.d/packet_forwarder $(1)/etc/init.d/packet_forwarder
 endef
 
 define Package/sx1302_hal_wrt/postinst
