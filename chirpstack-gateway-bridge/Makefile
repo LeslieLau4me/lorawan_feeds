@@ -1,6 +1,6 @@
 include $(TOPDIR)/rules.mk
 
-PKG_NAME:=chirpstack-gateway-bridge
+PKG_NAME:=lorabridge
 PKG_VERSION:=4.0.6
 PKG_RELEASE:=1
 
@@ -23,7 +23,7 @@ include $(INCLUDE_DIR)/package.mk
 # golang-package.mk should be relocate regarding the env
 include $(INCLUDE_DIR)/../feeds/packages/lang/golang/golang-package.mk
 
-define Package/chirpstack-gateway-bridge
+define Package/lorabridge
   SECTION:=net
   CATEGORY:=Network
   SUBMENU:=LoRaWAN
@@ -32,7 +32,7 @@ define Package/chirpstack-gateway-bridge
   PKGARCH:=all
 endef
 
-define Package/chirpstack-gateway-bridge/description
+define Package/lorabridge/description
   ChirpStack Gateway Bridge is a service which converts LoRa packet-forwarder 
   protocols into a ChirpStack Network Server common protocol (JSON and Protobuf).
 endef
@@ -40,15 +40,15 @@ endef
 GO_PKG_LDFLAGS:=-s -w
 GO_PKG_LDFLAGS_X:=main.version=$(PKG_VERSION)
 
-define Package/chirpstack-gateway-bridge/install
+define Package/lorabridge/install
 	$(call GoPackage/Package/Install/Bin,$(1))
 
 	$(INSTALL_DIR) $(1)/etc/init.d/
-	$(INSTALL_BIN) ./files/chirpstack-gateway-bridge.init $(1)/etc/init.d/chirpstack-gateway-bridge
+	$(INSTALL_BIN) ./files/bridge.init $(1)/etc/init.d/lorabridge
 
-	$(INSTALL_DIR) $(1)/etc/chirpstack-gateway-bridge
-	$(INSTALL_DATA) ./files/chirpstack-gateway-bridge.toml $(1)/etc/chirpstack-gateway-bridge/
+	$(INSTALL_DIR) $(1)/etc/lorabridge
+	$(INSTALL_DATA) ./files/bridge.toml $(1)/etc/lorabridge/
 endef
 
-$(eval $(call GoBinPackage,chirpstack-gateway-bridge))
-$(eval $(call BuildPackage,chirpstack-gateway-bridge))
+$(eval $(call GoBinPackage,lorabridge))
+$(eval $(call BuildPackage,lorabridge))
