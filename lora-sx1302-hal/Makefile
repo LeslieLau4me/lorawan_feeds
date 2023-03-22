@@ -83,8 +83,30 @@ define Package/sx1302_hal_wrt/install
 	$(INSTALL_DIR) $(1)/etc/lora_pkt_fwd
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packet_forwarder/global_conf.json.sx1250.* $(1)/etc/lora_pkt_fwd
 
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/tools/reset_lgw.sh $(1)/etc/lora_pkt_fwd
-	chmod +x $(1)/etc/lora_pkt_fwd/reset_lgw.sh
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/tools/reset_lgw.sh $(1)/usr/bin
+	chmod +x $(1)/usr/bin/reset_lgw.sh
+
+	$(INSTALL_DIR) $(1)/etc/init.d/
+        $(INSTALL_BIN) $(PKG_BUILD_DIR)/files/packet_forwarder $(1)/etc/init.d/packet_forwarder
+endef
+
+define Package/sx1302_hal_wrt/postinst
+#!/bin/sh
+if [ -z "$${IPKG_INSTROOT}" ]; then
+	echo "Enable packet_forwarder"
+	/etc/init.d/packet_forwarder enable
+fi
+exit 0
+endef
+
+define Package/sx1302_hal_wrt/prerm
+#!/bin/sh
+if [ -z "$${IPKG_INSTROOT}" ]; then
+	echo "Disable packet_forwarder"
+	/etc/init.d/packet_forwarder disable
+fi
+exit 0
 endef
 
 $(eval $(call BuildPackage,sx1302_hal_wrt))
