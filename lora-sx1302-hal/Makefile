@@ -89,6 +89,7 @@ define Package/sx1302_hal_wrt/install
 
 	$(INSTALL_DIR) $(1)/etc/init.d/
 	$(INSTALL_DATA) ./files/etc/init.d/packet_forwarder $(1)/etc/init.d/packet_forwarder
+	chmod +x $(1)/etc/init.d/packet_forwarder
 endef
 
 define Package/sx1302_hal_wrt/postinst

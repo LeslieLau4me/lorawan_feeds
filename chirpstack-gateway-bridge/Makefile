@@ -42,12 +42,14 @@ GO_PKG_LDFLAGS_X:=main.version=$(PKG_VERSION)
 
 define Package/chirpstack-gateway-bridge/install
 	$(call GoPackage/Package/Install/Bin,$(1))
+	mv $(1)/usr/bin/chirpstack-gateway-bridge $(1)/usr/bin/lorabridge
 
 	$(INSTALL_DIR) $(1)/etc/init.d/
-	$(INSTALL_BIN) ./files/chirpstack-gateway-bridge.init $(1)/etc/init.d/chirpstack-gateway-bridge
+	$(INSTALL_DATA) ./files/lorabridge.init $(1)/etc/init.d/lorabridge
+	chmod +x $(1)/etc/init.d/lorabridge
 
-	$(INSTALL_DIR) $(1)/etc/chirpstack-gateway-bridge
-	$(INSTALL_DATA) ./files/chirpstack-gateway-bridge.toml $(1)/etc/chirpstack-gateway-bridge/
+	$(INSTALL_DIR) $(1)/etc/lorabridge
+	$(INSTALL_DATA) ./files/lorabridge.toml $(1)/etc/lorabridge/
 endef
 
 $(eval $(call GoBinPackage,chirpstack-gateway-bridge))
