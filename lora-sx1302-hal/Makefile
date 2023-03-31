@@ -15,7 +15,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=ssh://git@gitlab.minew.net:2022/gateway/openwrt/packages/gateway_package_sx1302_hal.git
-PKG_SOURCE_VERSION:=53a9f12bfde61da368890d3f50148ef9b54ee937
+PKG_SOURCE_VERSION:=43d974b2c0f98cab874c07edacc9736ca21b5649
 
 PKG_MAINTAINER:=LXGMAX <leickwell@hotmail.com>
 PKG_LICENSE_FILES:=LICENSE
@@ -89,6 +89,7 @@ define Package/sx1302_hal_wrt/install
 
 	$(INSTALL_DIR) $(1)/etc/init.d/
 	$(INSTALL_DATA) ./files/etc/init.d/packet_forwarder $(1)/etc/init.d/packet_forwarder
+	$(INSTALL_DATA) ./files/etc/lorawm.json $(1)/etc/
 	chmod +x $(1)/etc/init.d/packet_forwarder
 endef
 
