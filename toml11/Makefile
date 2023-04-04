@@ -26,6 +26,7 @@ define Package/toml11
   CATEGORY:=Libraries
   TITLE:=C++11 header-only toml parser/encoder
   URL:=https://github.com/ToruNiina/toml11
+  BUILDONLY:=1
 endef
 
 define Package/toml11/description
