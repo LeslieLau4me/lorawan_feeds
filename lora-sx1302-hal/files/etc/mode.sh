@@ -20,21 +20,29 @@ launch_mode()
 	case "$wm" in
 		PKFD)
 			echo "loading packet_forwarder"
-			/etc/init.d/packet_forwarder start
 			/etc/init.d/lorabridge stop
 			/etc/init.d/basicstation stop
+			/etc/init.d/packet_forwarder stop
+			sleep 1s
+			/etc/init.d/packet_forwarder start
+
 			;;
 		BAST)
 			echo "loading basic station"
 			/etc/init.d/packet_forwarder stop
-                        /etc/init.d/lorabridge stop
-                        /etc/init.d/basicstation start
+            /etc/init.d/lorabridge stop
+			/etc/init.d/basicstation stop
+			sleep 1s
+            /etc/init.d/basicstation start
 			;;
 		BRDG)
 			echo "loading gateway bridge"
-                        /etc/init.d/packet_forwarder stop
-                        /etc/init.d/lorabridge start
-                        /etc/init.d/basicstation stop
+			/etc/init.d/basicstation stop
+			/etc/init.d/packet_forwarder stop
+			/etc/init.d/lorabridge stop
+			sleep 1s
+            /etc/init.d/lorabridge start
+
 			;;
 		*)
 			;;
