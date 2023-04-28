@@ -30,10 +30,10 @@ launch_mode()
 		BAST)
 			echo "loading basic station"
 			/etc/init.d/packet_forwarder stop
-            /etc/init.d/lorabridge stop
+			/etc/init.d/lorabridge stop
 			/etc/init.d/basicstation stop
 			sleep 1s
-            /etc/init.d/basicstation start
+			/etc/init.d/basicstation start
 			;;
 		BRDG)
 			echo "loading gateway bridge"
@@ -41,7 +41,7 @@ launch_mode()
 			/etc/init.d/packet_forwarder stop
 			/etc/init.d/lorabridge stop
 			sleep 1s
-            /etc/init.d/lorabridge start
+			/etc/init.d/lorabridge start
 
 			;;
 		*)
