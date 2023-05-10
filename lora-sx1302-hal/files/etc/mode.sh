@@ -38,9 +38,11 @@ launch_mode()
 		BRDG)
 			echo "loading gateway bridge"
 			/etc/init.d/basicstation stop
+
 			/etc/init.d/packet_forwarder stop
 			/etc/init.d/lorabridge stop
 			sleep 1s
+			/etc/init.d/packet_forwarder start
 			/etc/init.d/lorabridge start
 
 			;;
