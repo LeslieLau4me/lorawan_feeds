@@ -6,7 +6,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=sx1302_hal_wrt
-PKG_VERSION:=2.1.1
+PKG_VERSION:=2.1.2
 PKG_RELEASE:=1
 
 #PKG_SOURCE_URL:=https://codeload.github.com/LXGMAX/sx1302_hal_wrt/tar.gz/V$(PKG_VERSION)?
@@ -15,7 +15,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=ssh://git@gitlab.minew.net:2022/gateway/openwrt/packages/gateway_package_sx1302_hal.git
-PKG_SOURCE_VERSION:=291b7a971ecd729081139892cee51f431062be84
+PKG_SOURCE_VERSION:=b7f01b608d5ebfa70db3902b7578016545cfbf82
 
 PKG_MAINTAINER:=LXGMAX <leickwell@hotmail.com>
 PKG_LICENSE_FILES:=LICENSE
