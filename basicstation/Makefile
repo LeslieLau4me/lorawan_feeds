@@ -8,18 +8,22 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=basicstation
-PKG_VERSION:=2.0.6
+PKG_VERSION:=2.0.7
 PKG_RELEASE:=$(AUTORELEASE)
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=https://codeload.github.com/lorabasics/basicstation/tar.gz/v$(PKG_VERSION)?
-PKG_HASH:=7e285de94bae1174b4c3496fc3ab15fe67c72f92c0693d2320bafc654a9dfb43
+# PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+# PKG_SOURCE_URL:=https://codeload.github.com/lorabasics/basicstation/tar.gz/v$(PKG_VERSION)?
+# PKG_HASH:=7e285de94bae1174b4c3496fc3ab15fe67c72f92c0693d2320bafc654a9dfb43
+
+PKG_SOURCE_PROTO:=git
+PKG_SOURCE_URL:=ssh://git@gitlab.minew.net:2022/gateway/openwrt/packages/gateway_package_basicstation.git
+PKG_SOURCE_VERSION:=33c13fd34543a21892e935c5046b152f15819ad2
 
 PKG_MAINTAINER:=Marcus Schref <mschref@tdt.de>
 PKG_LICENSE:=BSD-3-Clause
 PKG_LICENSE_FILES:=LICENSE
 
-PKG_BUILD_DEPENDS:=lora-sx1302-hal mbedtls
+PKG_BUILD_DEPENDS:=lora-sx1302-hal mbedtls urcu
 
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/cmake.mk
@@ -29,7 +33,7 @@ define Package/basicstation
   CATEGORY:=Network
   SUBMENU:=LoRaWAN
   TITLE:=LoRa Basic Station
-  DEPENDS:=+kmod-spi-dev
+  DEPENDS:=+kmod-spi-dev +liburcu
 endef
 
 define Package/basicstation/description

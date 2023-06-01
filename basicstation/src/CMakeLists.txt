@@ -23,6 +23,10 @@ find_library(TINYMT32_LIBRARY NAMES libtinymt32.a PATH /usr/lib/)
 find_library(MBEDTLS_LIBRARY NAMES libmbedtls.a PATH /usr/lib/)
 find_library(MBEDCRYPTO_LIBRARY NAMES libmbedcrypto.a PATH /usr/lib/)
 find_library(MBEDX509_LIBRARY NAMES libmbedx509.a PATH /usr/lib/)
+find_library(urcu-cds NAMES urcu-cds)
+find_library(urcu-memb NAMES urcu-memb)
+find_library(urcu NAMES urcu)
+find_library(urcu-common NAMES urcu-common)
 
 set(basicstation_SOURCE_FILES
 	src/aio.c
@@ -60,6 +64,8 @@ set(basicstation_SOURCE_FILES
 	src/uj.c
 	src/web.c
 	src/xq.c
+	src/lorawan_filter.c
+	src/parson.c
 	src-linux/cmdfifo.c
 	src-linux/commands.c
 	src-linux/gps.c
@@ -78,6 +84,7 @@ target_link_libraries(s2core ${SX1302_HAL_LIBRARY} ${TINYMT32_LIBRARY} m)
 target_link_libraries(s2core ${MBEDTLS_LIBRARY})
 target_link_libraries(s2core ${MBEDCRYPTO_LIBRARY})
 target_link_libraries(s2core ${MBEDX509_LIBRARY})
+target_link_libraries(s2core ${urcu} ${urcu-cds} ${urcu-memb} ${urcu-common})
 
 add_executable(station src-linux/station_main.c)
 

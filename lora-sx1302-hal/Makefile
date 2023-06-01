@@ -15,7 +15,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=ssh://git@gitlab.minew.net:2022/gateway/openwrt/packages/gateway_package_sx1302_hal.git
-PKG_SOURCE_VERSION:=b7f01b608d5ebfa70db3902b7578016545cfbf82
+PKG_SOURCE_VERSION:=01374d70a35f991684c9780a0b4193c17ac39abe
 
 PKG_MAINTAINER:=LXGMAX <leickwell@hotmail.com>
 PKG_LICENSE_FILES:=LICENSE
@@ -28,7 +28,7 @@ define Package/sx1302_hal_wrt
   CATEGORY:=Network
   SUBMENU:=LoRaWAN
   TITLE:=SX1302/SX1303 HAL
-  DEPENDS:=+kmod-spi-dev
+  DEPENDS:=+kmod-spi-dev +liburcu
 endef
 
 define Package/sx1302_hal_wrt/description
