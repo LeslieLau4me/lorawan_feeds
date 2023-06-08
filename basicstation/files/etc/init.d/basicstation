@@ -240,14 +240,9 @@ service_triggers() {
 }
 
 start_service() {
-	rm -rf /tmp/basicstation/
-	mkdir -p /tmp/basicstation/
-
-	process_config
-
 	procd_open_instance
 	procd_set_param command /usr/bin/station
-	procd_append_param command --home /tmp/basicstation/
+	procd_append_param command --home /etc/basicstation/
 	procd_append_param command --force
 	procd_set_param respawn
 	procd_close_instance

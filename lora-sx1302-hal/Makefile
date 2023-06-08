@@ -9,13 +9,13 @@ PKG_NAME:=sx1302_hal_wrt
 PKG_VERSION:=2.1.2
 PKG_RELEASE:=1
 
-#PKG_SOURCE_URL:=https://codeload.github.com/LXGMAX/sx1302_hal_wrt/tar.gz/V$(PKG_VERSION)?
-#PKG_SOURCE:=sx1302_hal_wrt-$(PKG_VERSION).tar.gz
-#PKG_HASH:=d3824f2b0401cfe0dbfd0fdcbd3612b9af2d3e94509d67f96d072acd835219ed
+# PKG_SOURCE_URL:=https://codeload.github.com/LXGMAX/sx1302_hal_wrt/tar.gz/V$(PKG_VERSION)?
+# PKG_SOURCE:=sx1302_hal_wrt-$(PKG_VERSION).tar.gz
+# PKG_HASH:=d3824f2b0401cfe0dbfd0fdcbd3612b9af2d3e94509d67f96d072acd835219ed
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=ssh://git@gitlab.minew.net:2022/gateway/openwrt/packages/gateway_package_sx1302_hal.git
-PKG_SOURCE_VERSION:=01374d70a35f991684c9780a0b4193c17ac39abe
+PKG_SOURCE_VERSION:=1289bfae8dfff857e399dfdd8a1404819058c6ce
 
 PKG_MAINTAINER:=LXGMAX <leickwell@hotmail.com>
 PKG_LICENSE_FILES:=LICENSE

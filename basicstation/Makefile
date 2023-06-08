@@ -17,7 +17,7 @@ PKG_RELEASE:=$(AUTORELEASE)
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=ssh://git@gitlab.minew.net:2022/gateway/openwrt/packages/gateway_package_basicstation.git
-PKG_SOURCE_VERSION:=33c13fd34543a21892e935c5046b152f15819ad2
+PKG_SOURCE_VERSION:=782e8baf356e7df6c5567c590cfd5a3e2d4c31b8
 
 PKG_MAINTAINER:=Marcus Schref <mschref@tdt.de>
 PKG_LICENSE:=BSD-3-Clause
@@ -55,8 +55,8 @@ endef
 define Package/basicstation/install
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/station $(1)/usr/bin
-	$(INSTALL_DIR) $(1)/etc/config
-	$(INSTALL_CONF) ./files/etc/config/basicstation $(1)/etc/config/basicstation
+	# $(INSTALL_DIR) $(1)/etc/config
+	# $(INSTALL_CONF) ./files/etc/config/basicstation $(1)/etc/config/basicstation
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/etc/init.d/basicstation $(1)/etc/init.d/basicstation
 
@@ -64,6 +64,7 @@ define Package/basicstation/install
 	$(INSTALL_BIN) ./files/etc/basicstation/rinit.sh $(1)/etc/basicstation/
 	$(INSTALL_BIN) ./files/etc/basicstation/reset_lgw.sh $(1)/etc/basicstation/
 	$(INSTALL_BIN) ./files/etc/basicstation/tc.trust $(1)/etc/basicstation/
+	$(INSTALL_DATA) ./files/etc/config/station.conf $(1)/etc/basicstation/
 	chmod +x $(1)/etc/basicstation/reset_lgw.sh
 	chmod +x $(1)/etc/basicstation/rinit.sh
 endef
