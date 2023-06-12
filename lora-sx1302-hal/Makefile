@@ -91,10 +91,6 @@ define Package/sx1302_hal_wrt/install
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_DATA) ./files/etc/init.d/packet_forwarder $(1)/etc/init.d/packet_forwarder
 
-	$(INSTALL_DIR) $(1)/etc
-	$(INSTALL_DATA) ./files/etc/lorawm.json $(1)/etc/
-	$(INSTALL_DATA) ./files/etc/mode.sh $(1)/etc/
-	chmod +x $(1)/etc/mode.sh
 	chmod +x $(1)/etc/init.d/packet_forwarder
 endef
 
@@ -102,7 +98,6 @@ define Package/sx1302_hal_wrt/postinst
 #!/bin/sh
 if [ -z "$${IPKG_INSTROOT}" ]; then
 	echo "Enable packet_forwarder"
-	/etc/mode.sh enable
 	/etc/init.d/packet_forwarder enable
 fi
 exit 0
