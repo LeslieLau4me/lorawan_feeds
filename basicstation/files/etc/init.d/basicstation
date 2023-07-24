@@ -10,6 +10,17 @@ STOP=25
 
 USE_PROCD=1
 
+. /usr/share/libubox/jshn.sh
+
+wm=NONE
+
+load_lora_mode() {
+	json_init
+	json_load_file /etc/lorawan_workmode/lorawan_workmode.conf
+	json_get_var wm work_mode
+	echo $wm
+}
+
 #radioconf
 DEFAULT_COMIF='spi'
 DEFAULT_DEVPATH='/dev/spidev1.0'
@@ -240,12 +251,19 @@ service_triggers() {
 }
 
 start_service() {
-	procd_open_instance
-	procd_set_param command /usr/bin/station
-	procd_append_param command --home /etc/basicstation/
-	procd_append_param command --force
-	procd_set_param respawn
-	procd_close_instance
+	load_lora_mode
+	case "$wm" in
+	BAST)
+		procd_open_instance
+		procd_set_param command /usr/bin/station
+		procd_append_param command --home /etc/basicstation/
+		procd_append_param command --force
+		procd_set_param respawn
+		procd_close_instance
+		;;
+	*)
+		;;
+	esac
 }
 
 reload_service() {
