@@ -15,7 +15,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=ssh://git@gitlab.minew.net:2022/gateway/openwrt/packages/gateway_package_sx1302_hal.git
-PKG_SOURCE_VERSION:=7799143ba4bb42fd7a0c1e67e0ead81c01fbd326
+PKG_SOURCE_VERSION:=2362491ff9afe573274320e50ecb9300595ad6cc
 
 PKG_MAINTAINER:=LXGMAX <leickwell@hotmail.com>
 PKG_LICENSE_FILES:=LICENSE
@@ -79,8 +79,8 @@ endef
 define Package/sx1302_hal_wrt/install
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/packet_forwarder/lora_pkt_fwd $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/libloragw/test_loragw_hal_rx $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/libloragw/test_loragw_hal_tx $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/libloragw/test_loragw_* $(1)/usr/bin
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/util_chip_id/chip_id $(1)/usr/bin
 
 	$(INSTALL_DIR) $(1)/etc/lora_pkt_fwd
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packet_forwarder/global_conf.json.sx1250.* $(1)/etc/lora_pkt_fwd
@@ -92,8 +92,11 @@ define Package/sx1302_hal_wrt/install
 
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_DATA) ./files/etc/init.d/packet_forwarder $(1)/etc/init.d/packet_forwarder
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_DATA) ./files/usr/bin/led_control.sh $(1)/usr/bin/led_control.sh
 
 	chmod +x $(1)/etc/init.d/packet_forwarder
+	chmod +x $(1)/usr/bin/led_control.sh
 endef
 
 define Package/sx1302_hal_wrt/postinst
