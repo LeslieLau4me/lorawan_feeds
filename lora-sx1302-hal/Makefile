@@ -28,7 +28,7 @@ define Package/sx1302_hal_wrt
   CATEGORY:=Network
   SUBMENU:=LoRaWAN
   TITLE:=SX1302/SX1303 HAL
-  DEPENDS:=+kmod-spi-dev +liburcu +libsqlite3
+  DEPENDS:=+kmod-spi-dev +liburcu
 endef
 
 define Package/sx1302_hal_wrt/description
