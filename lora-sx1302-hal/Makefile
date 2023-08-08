@@ -15,7 +15,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=ssh://git@gitlab.minew.net:2022/gateway/openwrt/packages/gateway_package_sx1302_hal.git
-PKG_SOURCE_VERSION:=c6e968a06be8bc04f81106cc8e6dc9b8858b3761
+PKG_SOURCE_VERSION:=6ce729210ad09e32293eb0fb8da1b1a08c8cd70c
 
 PKG_MAINTAINER:=Minew
 PKG_LICENSE_FILES:=LICENSE
