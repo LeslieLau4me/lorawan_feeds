@@ -18,8 +18,7 @@ load_lora_mode() {
 
 start_service() {
         load_lora_mode
-        case "$wm" in
-	PKFD)
+        if [ "$wm" = "PKFD" ] || [ "$wm" = "BRDG" ]; then
                 echo '------packet forwarder starting-----'
                 procd_open_instance
                 procd_set_param command  /usr/bin/lora_pkt_fwd
@@ -28,10 +27,8 @@ start_service() {
                 procd_set_param stdout 1 # forward stdout of the command to logd
                 procd_set_param stderr 1 # same for stderr
                 procd_close_instance
-                ;;
-	*)
-	        ;;
-	esac
+        fi
+
 }
 
 reload_service() {
