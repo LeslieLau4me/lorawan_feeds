@@ -21,7 +21,8 @@ define Package/quectel-cm/description
   Quectel Connect Manager.
 endef
 
-define Build/Prepare  mkdir -p $(PKG_BUILD_DIR)
+define Build/Prepare
+    mkdir -p $(PKG_BUILD_DIR)
     $(CP) ./src/* $(PKG_BUILD_DIR)/
 endef
 

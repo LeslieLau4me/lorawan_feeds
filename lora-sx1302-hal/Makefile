@@ -94,9 +94,12 @@ define Package/sx1302_hal_wrt/install
 	$(INSTALL_DATA) ./files/etc/init.d/packet_forwarder $(1)/etc/init.d/packet_forwarder
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_DATA) ./files/usr/bin/led_control.sh $(1)/usr/bin/led_control.sh
+	$(INSTALL_DATA) ./files/usr/bin/lte_rst.sh $(1)/usr/bin/lte_rst.sh
+
 
 	chmod +x $(1)/etc/init.d/packet_forwarder
 	chmod +x $(1)/usr/bin/led_control.sh
+	chmod +x $(1)/usr/bin/lte_rst.sh
 endef
 
 define Package/sx1302_hal_wrt/postinst
