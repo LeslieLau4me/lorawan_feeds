@@ -352,6 +352,7 @@ BOOL qmidevice_detect(char *qmichannel, char *usbnet_adapter, unsigned bufsize, 
                 case 0x6005: //EC200A
                 case 0x6002: //EC200S
                 case 0x6001: //EC100Y
+                case 0x6007: //EG800Q
                     atIntf = 3;
                 break;
                 default:
