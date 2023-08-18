@@ -11,19 +11,19 @@ include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/cmake.mk
 
 define Package/quectel-cm
-  SECTION:=net
-  CATEGORY:=Network
-  SUBMENU:=LoRaWAN
-  TITLE:=Quectel Connect Manager
+	SECTION:=net
+	CATEGORY:=Network
+	SUBMENU:=LoRaWAN
+	TITLE:=Quectel Connect Manager
 endef
 
 define Package/quectel-cm/description
-  Quectel Connect Manager.
+	Quectel Connect Manager.
 endef
 
 define Build/Prepare
-    mkdir -p $(PKG_BUILD_DIR)
-    $(CP) ./src/* $(PKG_BUILD_DIR)/
+	mkdir -p $(PKG_BUILD_DIR)
+	$(CP) ./src/* $(PKG_BUILD_DIR)/
 endef
 
 define Package/quectel-cm/install
