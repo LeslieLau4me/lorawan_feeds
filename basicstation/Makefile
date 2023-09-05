@@ -61,12 +61,15 @@ define Package/basicstation/install
 	$(INSTALL_BIN) ./files/etc/init.d/basicstation $(1)/etc/init.d/basicstation
 
 	$(INSTALL_DIR) $(1)/etc/basicstation
-	$(INSTALL_BIN) ./files/etc/basicstation/rinit.sh $(1)/etc/basicstation/
-	$(INSTALL_BIN) ./files/etc/basicstation/reset_lgw.sh $(1)/etc/basicstation/
+	#$(INSTALL_BIN) ./files/etc/basicstation/reset_lgw.sh $(1)/etc/basicstation/
 	$(INSTALL_BIN) ./files/etc/basicstation/tc.trust $(1)/etc/basicstation/
 	$(INSTALL_DATA) ./files/etc/config/station.conf $(1)/etc/basicstation/
-	chmod +x $(1)/etc/basicstation/reset_lgw.sh
-	chmod +x $(1)/etc/basicstation/rinit.sh
+
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) ./files/usr/bin/rinit.sh $(1)/usr/bin
+
+	#chmod +x $(1)/etc/basicstation/reset_lgw.sh
+	chmod +x $(1)/usr/bin/rinit.sh
 endef
 
 $(eval $(call BuildPackage,basicstation))
