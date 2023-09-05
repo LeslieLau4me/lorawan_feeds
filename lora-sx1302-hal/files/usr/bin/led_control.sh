@@ -2,51 +2,51 @@
 
 turn_on_all_light() {
 	echo "Turning on $1"
-	echo 0 > /sys/class/leds/red/brightness
-	echo 0 > /sys/class/leds/blue/brightness
-	echo 0 > /sys/class/leds/green/brightness
+	echo 1 > /sys/class/leds/red/brightness
+	echo 1 > /sys/class/leds/blue/brightness
+	echo 1 > /sys/class/leds/green/brightness
 }
 
 turn_off_all_light() {
 	echo "Turning off $1"
-	echo 1 > /sys/class/leds/red/brightness
-	echo 1 > /sys/class/leds/blue/brightness
-	echo 1 > /sys/class/leds/green/brightness
+	echo 0 > /sys/class/leds/red/brightness
+	echo 0 > /sys/class/leds/blue/brightness
+	echo 0 > /sys/class/leds/green/brightness
 }
 
 turn_on_red_light() {
 	echo "Turning on $1"
-	echo 0 > /sys/class/leds/red/brightness
-	echo 1 > /sys/class/leds/blue/brightness
-	echo 1 > /sys/class/leds/green/brightness
+	echo 1 > /sys/class/leds/red/brightness
+	echo 0 > /sys/class/leds/blue/brightness
+	echo 0 > /sys/class/leds/green/brightness
 }
 
 turn_on_green_light() {
 	echo "Turning on $1"
-	echo 1 > /sys/class/leds/red/brightness
-	echo 1 > /sys/class/leds/blue/brightness
-	echo 0 > /sys/class/leds/green/brightness
+	echo 0 > /sys/class/leds/red/brightness
+	echo 0 > /sys/class/leds/blue/brightness
+	echo 1 > /sys/class/leds/green/brightness
 }
 
 turn_on_blue_light() {
 	echo "Turning on $1"
-	echo 1 > /sys/class/leds/red/brightness
-	echo 0 > /sys/class/leds/blue/brightness
-	echo 1 > /sys/class/leds/green/brightness
-}
-
-turn_on_yellow_light() {
-	echo "Turning on $1"
 	echo 0 > /sys/class/leds/red/brightness
 	echo 1 > /sys/class/leds/blue/brightness
 	echo 0 > /sys/class/leds/green/brightness
 }
 
-turn_on_purple_light() {
+turn_on_yellow_light() {
 	echo "Turning on $1"
-	echo 0 > /sys/class/leds/red/brightness
+	echo 1 > /sys/class/leds/red/brightness
 	echo 0 > /sys/class/leds/blue/brightness
 	echo 1 > /sys/class/leds/green/brightness
+}
+
+turn_on_purple_light() {
+	echo "Turning on $1"
+	echo 1 > /sys/class/leds/red/brightness
+	echo 1 > /sys/class/leds/blue/brightness
+	echo 0 > /sys/class/leds/green/brightness
 }
 
 if [ -z "$1" ]; then
