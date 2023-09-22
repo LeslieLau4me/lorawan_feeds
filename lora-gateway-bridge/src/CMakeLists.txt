@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.18)
+
+project(lora-gateway-bridge)
+FIND_PATH(LIBEVENT_INCLUDE_DIR NAMES event.h)
+FIND_LIBRARY(event NAMES event)
+FIND_LIBRARY(mosquitto NAMES mosquitto)
+aux_source_directory(. SRC_LIST)
+add_executable(lora-gateway-bridge ${SRC_LIST})
+target_link_libraries(lora-gateway-bridge ${toml11} ${stdcpp} ${nlohmannjson} ${event} ${mosquitto})
+target_link_libraries(${PROJECT_NAME} event mosquitto)
+install(TARGETS lora-gateway-bridge RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
