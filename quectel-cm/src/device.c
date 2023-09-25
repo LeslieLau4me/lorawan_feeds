@@ -343,6 +343,7 @@ BOOL qmidevice_detect(char *qmichannel, char *usbnet_adapter, unsigned bufsize, 
                 switch (profile->usb_dev.idProduct) { //EC200U
                 case 0x0901: //EC200U
                 case 0x8101: //RG801H
+                case 0x0904: //EG800G
                     atIntf = 2;
                 break;
                 case 0x0900: //RG500U
