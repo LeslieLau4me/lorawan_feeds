@@ -47,6 +47,8 @@ define Package/$(PKG_NAME)/install
 	$(INSTALL_DATA) ./files/etc/init.d/lora-gateway-bridge $(1)/etc/init.d/lora-gateway-bridge
 
 	chmod +x $(1)/etc/init.d/lora-gateway-bridge
+	$(INSTALL_DIR) $(1)/etc/lorabridge
+	$(INSTALL_DATA) ./files/lorabridge.toml $(1)/etc/lorabridge/
 endef
 
 define Package/$(PKG_NAME)/postinst
