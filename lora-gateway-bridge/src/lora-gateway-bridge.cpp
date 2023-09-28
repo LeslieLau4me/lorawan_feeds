@@ -40,15 +40,16 @@
 #define PKT_PULL_ACK     4
 #define PKT_TX_ACK       5
 
-#define ETH_NAME_DEFAULT    "eth0"
-#define BRIDGE_CONF_DEFAULT "/etc/lorabridge/lorabridge.toml"
-#define STATUS_SIZE         200
-#define NB_PKT_MAX          255 /* max number of packets per fetch/send cycle */
-#define TX_BUFF_SIZE        ((540 * NB_PKT_MAX) + 30 + STATUS_SIZE)
-#define MAX_LORA_MAC        6
-#define MAX_GATEWAY_ID      16
-#define LORAWAN_UDP_SERVER  "0.0.0.0"
-#define LORAWAN_UDP_PORT    1700
+#define ETH_NAME_DEFAULT          "eth0"
+#define BRIDGE_CONF_DEFAULT       "/etc/lorabridge/lorabridge.toml"
+#define BRIDGE_TOPIC_CONF_DEFAULT "/etc/lorabridge/lorabridge_topic.conf"
+#define STATUS_SIZE               200
+#define NB_PKT_MAX                255 /* max number of packets per fetch/send cycle */
+#define TX_BUFF_SIZE              ((540 * NB_PKT_MAX) + 30 + STATUS_SIZE)
+#define MAX_LORA_MAC              6
+#define MAX_GATEWAY_ID            16
+#define LORAWAN_UDP_SERVER        "0.0.0.0"
+#define LORAWAN_UDP_PORT          1700
 
 #define MQTT_BROKER_DEFAULT    "127.0.0.1"
 #define MQTT_PORT_DEFAULT      1883
@@ -61,7 +62,6 @@ struct event_base *evbase = nullptr;
 
 static int             mqtt_keepalive = 60;
 static evutil_socket_t udp_socket;
-static int             lorawan_udp_port;
 
 static int     mqtt_port;
 static string  mqtt_host;
@@ -80,7 +80,6 @@ static string topic_pub_rxpk;
 static string topic_pub_downlink;
 static string topic_pub_downlink_ack;
 static string topic_pub_gateway_stat;
-static string topic_pull_request;
 
 /* Topic for subscribe*/
 
@@ -241,7 +240,7 @@ void BridgeToml::parse_toml_integration_generic(void)
     this->generic_password = toml::find<std::string>(generic, "password");
     std::cout << "[Bridge]mqtt generic the password: " << this->generic_password << std::endl;
     this->generic_qos = toml::find<std::uint32_t>(generic, "qos");
-    std::cout << "[Bridge]mqtt generic the qos is " << this->generic_qos << std::endl;
+    std::cout << "[Bridge]mqtt generic the qos:" << this->generic_qos << std::endl;
     this->generic_clean_session = toml::find<bool>(generic, "clean_session");
     std::cout << "[Bridge]mqtt generic the clean_session: "
               << (this->generic_clean_session ? "true" : "false") << std::endl;
@@ -270,24 +269,27 @@ static void signal_cb(evutil_socket_t sig, short events, void *user_data)
 // Mosquitto连接回调函数
 static void on_connect(struct mosquitto *mosq, void *obj, int rc)
 {
-    if (rc == 0) {
-        std::cout << "Connected to MQTT broker." << std::endl;
-        // 订阅下发的tx数据
-        mosquitto_subscribe(mosq, NULL, topic_sub_txpk.c_str(), mqtt_qos);
-    } else {
+    printf("on_connect: %s\n", mosquitto_connack_string(rc));
+    if (rc != 0) {
         std::cerr << "Failed to connect to MQTT broker." << std::endl;
+        mosquitto_disconnect(mosq);
+    } else {
+        std::cout << "Connected to MQTT broker." << std::endl;
+        if (mosquitto_subscribe(mosq, NULL, topic_sub_txpk.c_str(), mqtt_qos) < 0) {
+            std::cerr << "Failed to subscribe tx topic." << std::endl;
+        }
     }
 }
 
 void on_disconnect(struct mosquitto *mosq, void *userdata, int result)
 {
     printf("WARN: MQTT broker had lost connection, LoRa gateway bridge will exit...\n");
-    event_base_loopexit(evbase, NULL);
 }
 
 static void
 on_subscribe(struct mosquitto *mosq, void *obj, int mid, int qos_count, const int *granted_qos)
 {
+    printf("Topic subscribed...\n");
     bool have_subscription = false;
     for (int i = 0; i < qos_count; i++) {
         printf("on_subscribe: %d:granted qos = %d\n", i, granted_qos[i]);
@@ -491,8 +493,7 @@ static void read_cb(evutil_socket_t fd, short events, void *arg)
     if (map_udp_pkt_cb.count(mode)) {
         // 执行消息处理的回调
         int ret = map_udp_pkt_cb[mode](fd);
-        if (ret < 0) { /*Do nothing*/
-        }
+        if (ret < 0) {}
     }
 }
 
@@ -569,21 +570,48 @@ static int generate_gateway_id_by_mac(char *gw_id)
 
 static int lora_bridge_set_mqtt_topic(void)
 {
+    ifstream json_ifstream;
+    ofstream json_ofstream;
+    json     local_json;
+    string   eui;
+    try {
+        json_ifstream.open(BRIDGE_TOPIC_CONF_DEFAULT);
+        json_ifstream >> local_json;
+        json_ifstream.close();
+        eui = local_json["gateway_eui"];
+    } catch (const std::exception &e) {
+        std::cerr << e.what() << '\n';
+    }
     char gateway_eui[MAX_GATEWAY_ID + 1] = { 0 };
     if (generate_gateway_id_by_mac(gateway_eui) < 0) {
         std::cerr << "Failed to get eth mac." << std::endl;
         return -1;
     }
-    /*
-        Notice: 目前主题暂定如下，后续如有需要可配合前端实现修改主题模版
-    */
-    /* clang-format off */
-    topic_pub_rxpk         = string("gateway/") + string(gateway_eui) + string("/event/") + string("up");
-    topic_pub_downlink     = string("gateway/") + string(gateway_eui) + string("/event/") + string("down");
-    topic_pub_downlink_ack = string("gateway/") + string(gateway_eui) + string("/event/") + string("ack");
-    topic_pub_gateway_stat = string("gateway/") + string(gateway_eui) + string("/event/") + string("stat");
-    topic_sub_txpk         = string("gateway/") + string(gateway_eui) + string("/event/") + string("tx");
-    /* clang-format on */
+    if (eui != string(gateway_eui)) {
+        json setting_json;
+        setting_json["gateway_eui"]    = gateway_eui;
+        setting_json["topic_pub_rxpk"] = topic_pub_rxpk =
+            string("gateway/") + string(gateway_eui) + string("/event/") + string("up");
+        setting_json["topic_pub_downlink"] = topic_pub_downlink =
+            string("gateway/") + string(gateway_eui) + string("/event/") + string("down");
+        setting_json["topic_pub_downlink_ack"] = topic_pub_downlink_ack =
+            string("gateway/") + string(gateway_eui) + string("/event/") + string("ack");
+        setting_json["topic_pub_gateway_stat"] = topic_pub_gateway_stat =
+            string("gateway/") + string(gateway_eui) + string("/event/") + string("stat");
+        setting_json["topic_sub_txpk"] = topic_sub_txpk =
+            string("gateway/") + string(gateway_eui) + string("/event/") + string("tx");
+        json_ofstream.open(BRIDGE_TOPIC_CONF_DEFAULT);
+        json_ofstream << setting_json.dump(4) << endl;
+        json_ofstream.close();
+    } else {
+        std::cout << "Topic has been writen to file." << std::endl;
+        topic_pub_rxpk         = local_json["topic_pub_rxpk"];
+        topic_pub_downlink     = local_json["topic_pub_downlink"];
+        topic_pub_downlink_ack = local_json["topic_pub_downlink_ack"];
+        topic_pub_gateway_stat = local_json["topic_pub_gateway_stat"];
+        topic_sub_txpk         = local_json["topic_sub_txpk"];
+    }
+
     std::cout << "Uplink rx topic:" << topic_pub_rxpk << std::endl;
     std::cout << "Downlink tx topic:" << topic_pub_downlink << std::endl;
     std::cout << "Downlink tx ack topic:" << topic_pub_downlink_ack << std::endl;
@@ -591,6 +619,20 @@ static int lora_bridge_set_mqtt_topic(void)
     std::cout << "Tx topic receiving tx packet:" << topic_sub_txpk << std::endl;
 
     return 0;
+}
+
+void *mqtt_message_thread(void *arg)
+{
+    pthread_detach(pthread_self());
+    int ret = mosquitto_connect(mosq, MQTT_BROKER_DEFAULT, MQTT_PORT_DEFAULT, mqtt_keepalive);
+    if (ret != MOSQ_ERR_SUCCESS) {
+        mosquitto_destroy(mosq);
+        fprintf(stderr, "Error: %s\n", mosquitto_strerror(ret));
+        event_base_loopexit(evbase, NULL);
+        return NULL;
+    }
+    mosquitto_loop_forever(mosq, -1, 1);
+    return NULL;
 }
 
 int main(void)
@@ -617,6 +659,7 @@ int main(void)
     // 设置连接回调函数
     mosquitto_connect_callback_set(mosq, on_connect);
     mosquitto_disconnect_callback_set(mosq, on_disconnect);
+    mosquitto_subscribe_callback_set(mosq, on_subscribe);
     // 设置发布回调函数
     mosquitto_publish_callback_set(mosq, on_publish);
     mosquitto_message_callback_set(mosq, on_message);
@@ -686,19 +729,12 @@ int main(void)
         return -1;
     }
 
-    if (mosquitto_connect_async(mosq, MQTT_BROKER_DEFAULT, MQTT_PORT_DEFAULT, mqtt_keepalive) !=
-        MOSQ_ERR_SUCCESS) {
-        std::cerr << "Could not connect to mqtt broker!" << std::endl;
-        event_free(udp_ev);
-        close(udp_socket);
-        event_base_free(evbase);
-        mosquitto_destroy(mosq);
-        mosquitto_lib_cleanup();
-        return -1;
-    }
+    pthread_t mqtt_tid;
+    pthread_create(&mqtt_tid, NULL, mqtt_message_thread, NULL);
 
     event_base_dispatch(evbase);
     close(udp_socket);
+    mosquitto_loop_stop(mosq, false);
     event_base_free(evbase);
     mosquitto_destroy(mosq);
     mosquitto_lib_cleanup();

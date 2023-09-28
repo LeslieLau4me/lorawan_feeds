@@ -4,13 +4,33 @@ START=101
 STOP=10
 USE_PROCD=1
 
+. /usr/share/libubox/jshn.sh
+
+wm=NONE
+
+load_lora_mode() {
+        json_init
+        json_load_file /etc/lorawan_workmode/lorawan_workmode.conf
+        json_get_var wm work_mode
+        echo $wm
+}
+
 start_service() {
-    echo "Start lora gateway bridge..."
-    procd_open_instance
-    procd_set_param command  /usr/bin/lora-gateway-bridge
-    procd_set_param stdout 1
-    procd_set_param stderr 1
-    procd_close_instance
+	load_lora_mode
+	case "$wm" in
+        BRDG)
+            echo "Start lora gateway bridge..."
+            procd_open_instance
+            procd_set_param command  /usr/bin/lora-gateway-bridge
+            procd_set_param stdout 1
+            procd_set_param stderr 1
+            procd_close_instance
+            ;;
+        *)
+	    ;;
+    esac
+
+
 }
 
 stop_service() {

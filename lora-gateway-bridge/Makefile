@@ -13,7 +13,7 @@ PKG_BUILD_DEPENDS:=nlohmannjson toml11
 
 PKG_RELEASE:=1.0
 PKG_LICENSE:=GPLv3
-PKG_MAINTAINER:=liusheng <sheng.liu@minew.com>
+PKG_MAINTAINER:=Minew
 PKG_BUILD_DEPENDS:=
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/cmake.mk
@@ -35,6 +35,10 @@ define Build/Prepare
 	$(CP) ./src/* $(PKG_BUILD_DIR)/
 endef
 
+define Build/Compile
+        $(MAKE) -C $(PKG_BUILD_DIR)/
+endef
+
 define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/lora-gateway-bridge $(1)/usr/bin
@@ -43,8 +47,6 @@ define Package/$(PKG_NAME)/install
 	$(INSTALL_DATA) ./files/etc/init.d/lora-gateway-bridge $(1)/etc/init.d/lora-gateway-bridge
 
 	chmod +x $(1)/etc/init.d/lora-gateway-bridge
-        $(INSTALL_DIR) $(1)/etc/lorabridge
-        $(INSTALL_DATA) ./files/lorabridge.toml $(1)/etc/lorabridge/
 endef
 
 define Package/$(PKG_NAME)/postinst
