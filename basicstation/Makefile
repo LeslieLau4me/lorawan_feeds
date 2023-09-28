@@ -23,7 +23,7 @@ PKG_MAINTAINER:=Marcus Schref <mschref@tdt.de>
 PKG_LICENSE:=BSD-3-Clause
 PKG_LICENSE_FILES:=LICENSE
 
-PKG_BUILD_DEPENDS:=lora-sx1302-hal mbedtls urcu
+PKG_BUILD_DEPENDS:=lora-sx1302-hal mbedtls
 
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/cmake.mk
