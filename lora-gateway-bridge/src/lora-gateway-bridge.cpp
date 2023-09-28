@@ -624,7 +624,7 @@ static int lora_bridge_set_mqtt_topic(void)
 void *mqtt_message_thread(void *arg)
 {
     pthread_detach(pthread_self());
-    int ret = mosquitto_connect(mosq, MQTT_BROKER_DEFAULT, MQTT_PORT_DEFAULT, mqtt_keepalive);
+    int ret = mosquitto_connect(mosq, mqtt_host.c_str(), mqtt_port, mqtt_keepalive);
     if (ret != MOSQ_ERR_SUCCESS) {
         mosquitto_destroy(mosq);
         fprintf(stderr, "Error: %s\n", mosquitto_strerror(ret));
