@@ -672,8 +672,21 @@ int main(void)
     // 设置TLS选项
     if (!ca_file_path.empty() && !key_file_path.empty() && !cert_file_path.empty()) {
         std::cout << "Set TLS encryption...." << std::endl;
-        mosquitto_tls_set(
-            mosq, ca_file_path.c_str(), NULL, cert_file_path.c_str(), key_file_path.c_str(), NULL);
+        string folder_path;
+        auto pos = ca_file_path.find_last_not_of("/\\");
+        if (pos != string::npos) {
+            folder_path = ca_file_path.substr(0, pos);
+        }
+        if (folder_path.empty()) {
+            std::cerr << "Either cafile or capath must not be empty" << std::endl;
+            mosquitto_destroy(mosq);
+            mosquitto_lib_cleanup();
+            return -1;
+        }
+        printf("Cafile: %s, Cafile path: %s, Certfile:%s, Keyfile: %s\n",
+                ca_file_path.c_str(), folder_path.c_str(), cert_file_path.c_str(), key_file_path.c_str());
+        mosquitto_tls_set(mosq, ca_file_path.c_str(), folder_path.c_str(),
+                                cert_file_path.c_str(), key_file_path.c_str(), NULL);
     }
 
     // 创建事件处理器
