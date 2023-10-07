@@ -629,7 +629,7 @@ void *mqtt_message_thread(void *arg)
        ret = mosquitto_connect(mosq, mqtt_host.c_str(), mqtt_port, mqtt_keepalive);
         if (ret != MOSQ_ERR_SUCCESS) {
             fprintf(stderr, "Error: %s\n", mosquitto_strerror(ret));
-            sleep(1);
+            sleep(5);
         }
     } while (ret != MOSQ_ERR_SUCCESS);
     mosquitto_loop_forever(mosq, -1, 1);
