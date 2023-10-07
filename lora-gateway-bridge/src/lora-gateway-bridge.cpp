@@ -624,12 +624,14 @@ static int lora_bridge_set_mqtt_topic(void)
 void *mqtt_message_thread(void *arg)
 {
     pthread_detach(pthread_self());
-    int ret = mosquitto_connect(mosq, mqtt_host.c_str(), mqtt_port, mqtt_keepalive);
-    if (ret != MOSQ_ERR_SUCCESS) {
-        fprintf(stderr, "Error: %s\n", mosquitto_strerror(ret));
-        event_base_loopexit(evbase, NULL);
-        return NULL;
-    }
+    int ret;
+    do {
+       ret = mosquitto_connect(mosq, mqtt_host.c_str(), mqtt_port, mqtt_keepalive);
+        if (ret != MOSQ_ERR_SUCCESS) {
+            fprintf(stderr, "Error: %s\n", mosquitto_strerror(ret));
+            sleep(1);
+        }
+    } while (ret != MOSQ_ERR_SUCCESS);
     mosquitto_loop_forever(mosq, -1, 1);
     return NULL;
 }
