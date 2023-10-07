@@ -74,6 +74,8 @@ static string  client_id;
 static uint8_t mqtt_qos;
 static bool    mqtt_clean_session;
 
+static bool has_connected = false;
+
 /* Topic for publish*/
 
 static string topic_pub_rxpk;
@@ -624,14 +626,13 @@ static int lora_bridge_set_mqtt_topic(void)
 void *mqtt_message_thread(void *arg)
 {
     pthread_detach(pthread_self());
-    int ret;
-    do {
-       ret = mosquitto_connect(mosq, mqtt_host.c_str(), mqtt_port, mqtt_keepalive);
-        if (ret != MOSQ_ERR_SUCCESS) {
-            fprintf(stderr, "Error: %s\n", mosquitto_strerror(ret));
-            sleep(5);
-        }
-    } while (ret != MOSQ_ERR_SUCCESS);
+    int ret = mosquitto_connect(mosq, mqtt_host.c_str(), mqtt_port, mqtt_keepalive);
+    if (ret != MOSQ_ERR_SUCCESS) {
+        fprintf(stderr, "Error: %s, program exit....\n", mosquitto_strerror(ret));
+        event_base_loopexit(evbase, NULL);
+        return NULL;
+    }
+    has_connected = true;
     mosquitto_loop_forever(mosq, -1, 1);
     return NULL;
 }
