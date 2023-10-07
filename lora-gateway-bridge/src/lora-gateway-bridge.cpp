@@ -749,7 +749,9 @@ int main(void)
 
     event_base_dispatch(evbase);
     close(udp_socket);
-    mosquitto_loop_stop(mosq, false);
+    if (has_connected) {
+        mosquitto_loop_stop(mosq, false);
+    }
     event_base_free(evbase);
     mosquitto_destroy(mosq);
     mosquitto_lib_cleanup();
