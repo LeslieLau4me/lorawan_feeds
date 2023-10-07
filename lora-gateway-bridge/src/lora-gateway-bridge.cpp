@@ -626,7 +626,6 @@ void *mqtt_message_thread(void *arg)
     pthread_detach(pthread_self());
     int ret = mosquitto_connect(mosq, mqtt_host.c_str(), mqtt_port, mqtt_keepalive);
     if (ret != MOSQ_ERR_SUCCESS) {
-        mosquitto_destroy(mosq);
         fprintf(stderr, "Error: %s\n", mosquitto_strerror(ret));
         event_base_loopexit(evbase, NULL);
         return NULL;
