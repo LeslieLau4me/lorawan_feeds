@@ -353,7 +353,7 @@ static int response_pkt_push_data(evutil_socket_t fd)
             // uplink_stat_json         = uplink_json["stat"];
             uplink_stat_json["stat"] = uplink_json["stat"];
             string str_stat          = uplink_stat_json.dump();
-            std::cout << "publish topic:" << topic_pub_gateway_stat << ":" << str_stat << std::endl;
+            std::cout << "publish topic:" << topic_pub_gateway_stat << std::endl;
             mosquitto_publish(mosq, NULL, topic_pub_gateway_stat.c_str(), str_stat.length(), str_stat.c_str(), mqtt_qos, false);
         }
         if (uplink_json.contains("rxpk")) {
@@ -362,7 +362,7 @@ static int response_pkt_push_data(evutil_socket_t fd)
             string str_rxpk        = uplink_rx_json.dump();
             // 将上行数据发布到MQTT主题
             mosquitto_publish(mosq, NULL, topic_pub_rxpk.c_str(), str_rxpk.length(), str_rxpk.c_str(), mqtt_qos, false);
-            std::cout << "publish topic:" << topic_pub_rxpk << ":" << str_rxpk << std::endl;
+            std::cout << "publish topic:" << topic_pub_rxpk << std::endl;
         }
 
         std::cout << "uplink json:" << uplink_json.dump() << std::endl;
