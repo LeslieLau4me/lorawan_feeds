@@ -42,6 +42,8 @@ static string  client_id;
 static uint8_t mqtt_qos;
 static bool    mqtt_clean_session;
 
+static double tx_freq = 0.0;
+
 class BridgeToml
 {
   private:
@@ -269,7 +271,7 @@ void publish_tx_data(struct mosquitto *mosq)
 	int rc = -1;
     json tx_json;
     tx_json["txpk"]["imme"] = true;
-    tx_json["txpk"]["freq"] = 912.123456;
+    tx_json["txpk"]["freq"] = tx_freq;
     tx_json["txpk"]["rfch"] = 0;
     tx_json["txpk"]["powe"] = 12;
     tx_json["txpk"]["modu"] = "LORA";
@@ -297,8 +299,25 @@ static int parse_bridge_toml_file(void)
     return 0;
 }
 
-int main(void)
+int main(int argc, char const *argv[])
 {
+    if (argc < 2) {
+        std::cerr << "Format:" << argv[0] << " " << "{{feq}} e.g:" << argv[0] << " 923.123456" << std::endl;
+        printf("US915 feq: min: 923.00 max: 928.00 \n");
+        printf("EU868 feq: min: 863.00 max: 870.00 \n");
+        printf("US915 feq: min: 500.00 max: 510.00 \n");
+        return -1;
+    } else {
+        tx_freq = std::atof(argv[1]);
+        if (tx_freq <= (double)0) {
+            std::cerr << "请输入有效的浮点类型." << std::endl;
+            std::cerr << "Format:" << argv[0] << " " << "{{feq}} e.g:" << argv[0] << " 923.123456" << std::endl;
+            printf("US915 feq: min: 923.00 max: 928.00 \n");
+            printf("EU868 feq: min: 863.00 max: 870.00 \n");
+            printf("US915 feq: min: 500.00 max: 510.00 \n");
+            return -1;
+        }
+    }
     if (parse_bridge_toml_file() < 0) {
         std::cerr << "Failed to parse bridge toml file." << std::endl;
         return -1;
