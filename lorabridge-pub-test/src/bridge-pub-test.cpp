@@ -362,7 +362,8 @@ int main(int argc, char const *argv[])
         fprintf(stderr, "Error: %s\n", mosquitto_strerror(ret));
         return -1;
     }
-    printf("Connected broker successfully, loop start, broker:%s:%d, qos:%d, keepalive:%d", mqtt_host.c_str(), mqtt_port, mqtt_keepalive);
+    printf("Connected broker successfully, loop start....\n MQTT broker:%s:%d, QoS:%d, keepalive:%d \n",
+                                            mqtt_host.c_str(), mqtt_port, (int)mqtt_qos, mqtt_keepalive);
     while (1) {
         publish_tx_data(mosq);
         sleep(5);

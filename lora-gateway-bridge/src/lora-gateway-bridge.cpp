@@ -605,13 +605,6 @@ static int lora_bridge_set_mqtt_topic(void)
         topic_pub_gateway_stat = local_json["topic_pub_gateway_stat"];
         topic_sub_txpk         = local_json["topic_sub_txpk"];
     }
-
-    std::cout << "Uplink rx topic:" << topic_pub_rxpk << std::endl;
-    std::cout << "Downlink tx topic:" << topic_pub_downlink << std::endl;
-    std::cout << "Downlink tx ack topic:" << topic_pub_downlink_ack << std::endl;
-    std::cout << "Gateway statistics topic:" << topic_pub_gateway_stat << std::endl;
-    std::cout << "Tx topic receiving tx packet:" << topic_sub_txpk << std::endl;
-
     return 0;
 }
 
@@ -624,7 +617,13 @@ void *mqtt_message_thread(void *arg)
         event_base_loopexit(evbase, NULL);
         return NULL;
     }
-    printf("Connected broker successfully, loop start, broker:%s:%d, qos:%d, keepalive:%d", mqtt_host.c_str(), mqtt_port, mqtt_keepalive);
+    printf("Connected broker successfully, loop start....\n MQTT broker:%s:%d, QoS:%d, keepalive:%d \n",
+                                            mqtt_host.c_str(), mqtt_port, (int)mqtt_qos, mqtt_keepalive);
+    std::cout << "Uplink rx topic:" << topic_pub_rxpk << std::endl;
+    std::cout << "Downlink tx topic:" << topic_pub_downlink << std::endl;
+    std::cout << "Downlink tx ack topic:" << topic_pub_downlink_ack << std::endl;
+    std::cout << "Gateway statistics topic:" << topic_pub_gateway_stat << std::endl;
+    std::cout << "Tx topic receiving tx packet:" << topic_sub_txpk << std::endl;
     has_connected = true;
     mosquitto_loop_forever(mosq, -1, 1);
     return NULL;
