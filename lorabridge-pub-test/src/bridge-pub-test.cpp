@@ -112,7 +112,6 @@ void BridgeToml::parse_toml_backend_udp(void)
 
     const auto &semtech_udp = toml::find(backend, "semtech_udp");
     string      udp_bind    = toml::find<std::string>(semtech_udp, "udp_bind");
-    std::cout << "[Bridge]udp bind:" << udp_bind << std::endl;
     auto  idx     = udp_bind.find(":");
     char *ip_port = const_cast<char *>(udp_bind.c_str());
     if (ip_port != NULL && idx > 0) {
@@ -136,7 +135,6 @@ void BridgeToml::parse_toml_integration_generic(void)
     this->mqtt_auth_type         = toml::find<std::string>(auth, "type");
     const auto generic           = toml::find(auth, "generic");
     string     bind              = toml::find<std::string>(generic, "server");
-    std::cout << "[Bridge]mqtt generic bind: " << bind << std::endl;
     auto   idx     = bind.find(":");
     char  *ip_port = const_cast<char *>(bind.c_str());
     string actual_ip;
@@ -152,26 +150,15 @@ void BridgeToml::parse_toml_integration_generic(void)
         }
         char *port         = strtok(NULL, ":");
         this->generic_port = atoi(port);
-        std::cout << "[Bridge]mqtt generic the port: " << port << std::endl;
     }
-    std::cout << "[Bridge]mqtt generic the server: " << this->generic_ip << std::endl;
     this->generic_username = toml::find<std::string>(generic, "username");
-    std::cout << "[Bridge]mqtt generic the username: " << this->generic_username << std::endl;
     this->generic_password = toml::find<std::string>(generic, "password");
-    std::cout << "[Bridge]mqtt generic the password: " << this->generic_password << std::endl;
     this->generic_qos = toml::find<std::uint32_t>(generic, "qos");
-    std::cout << "[Bridge]mqtt generic the qos:" << this->generic_qos << std::endl;
     this->generic_clean_session = toml::find<bool>(generic, "clean_session");
-    std::cout << "[Bridge]mqtt generic the clean_session: "
-              << (this->generic_clean_session ? "true" : "false") << std::endl;
     this->generic_client_id = toml::find<std::string>(generic, "client_id");
-    std::cout << "[Bridge]mqtt generic the client_id: " << this->generic_client_id << std::endl;
     this->generic_ca_cert = toml::find<std::string>(generic, "ca_cert");
-    std::cout << "[Bridge]mqtt generic the ca_cert: " << this->generic_ca_cert << std::endl;
     this->generic_tls_cert = toml::find<std::string>(generic, "tls_cert");
-    std::cout << "[Bridge]mqtt generic the tls_cert: " << this->generic_tls_cert << std::endl;
     this->generic_tls_key = toml::find<std::string>(generic, "tls_key");
-    std::cout << "[Bridge]mqtt generic the tls_key: " << this->generic_tls_key << std::endl;
 }
 
 void BridgeToml::parse_local_for_each(void)
@@ -375,6 +362,7 @@ int main(int argc, char const *argv[])
         fprintf(stderr, "Error: %s\n", mosquitto_strerror(ret));
         return -1;
     }
+    printf("Connected broker successfully, loop start, broker:%s:%d, qos:%d, keepalive:%d", mqtt_host.c_str(), mqtt_port, mqtt_keepalive);
     while (1) {
         publish_tx_data(mosq);
         sleep(5);
