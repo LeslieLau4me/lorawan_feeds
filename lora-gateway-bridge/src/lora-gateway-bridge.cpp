@@ -277,7 +277,7 @@ static void on_connect(struct mosquitto *mosq, void *obj, int rc)
         mosquitto_disconnect(mosq);
     } else {
         std::cout << "Connected to MQTT broker." << std::endl;
-        if (mosquitto_subscribe(mosq, NULL, topic_sub_txpk.c_str(), mqtt_qos) < 0) {
+        if (topic_sub_txpk.empty() || mosquitto_subscribe(mosq, NULL, topic_sub_txpk.c_str(), mqtt_qos) < 0) {
             std::cerr << "Failed to subscribe tx topic." << std::endl;
         }
     }
@@ -349,28 +349,28 @@ static int response_pkt_push_data(evutil_socket_t fd)
     /* clang-format off */
     try {
         uplink_json = json::parse(buffer_up + 12);
-        if (uplink_json.contains("stat")) {
-            // uplink_stat_json         = uplink_json["stat"];
-            uplink_stat_json["stat"] = uplink_json["stat"];
-            string str_stat          = uplink_stat_json.dump();
-            std::cout << "publish topic:" << topic_pub_gateway_stat << std::endl;
-            mosquitto_publish(mosq, NULL, topic_pub_gateway_stat.c_str(), str_stat.length(), str_stat.c_str(), mqtt_qos, false);
+        if (!topic_pub_gateway_stat.empty()) {
+            if (uplink_json.contains("stat")) {
+                // uplink_stat_json         = uplink_json["stat"];
+                uplink_stat_json["stat"] = uplink_json["stat"];
+                string str_stat          = uplink_stat_json.dump();
+                std::cout << "publish topic:" << topic_pub_gateway_stat << std::endl;
+                mosquitto_publish(mosq, NULL, topic_pub_gateway_stat.c_str(), str_stat.length(), str_stat.c_str(), mqtt_qos, false);
+            }
         }
-        if (uplink_json.contains("rxpk")) {
-            // uplink_rx_json           = uplink_json["rxpk"];
-            uplink_rx_json["rxpk"] = uplink_json["rxpk"];
-            string str_rxpk        = uplink_rx_json.dump();
-            // 将上行数据发布到MQTT主题
-            mosquitto_publish(mosq, NULL, topic_pub_rxpk.c_str(), str_rxpk.length(), str_rxpk.c_str(), mqtt_qos, false);
-            std::cout << "publish topic:" << topic_pub_rxpk << std::endl;
+        if (!topic_pub_rxpk.empty()) {
+            if (uplink_json.contains("rxpk")) {
+                // uplink_rx_json           = uplink_json["rxpk"];
+                uplink_rx_json["rxpk"] = uplink_json["rxpk"];
+                string str_rxpk        = uplink_rx_json.dump();
+                // 将上行数据发布到MQTT主题
+                mosquitto_publish(mosq, NULL, topic_pub_rxpk.c_str(), str_rxpk.length(), str_rxpk.c_str(), mqtt_qos, false);
+                std::cout << "publish topic:" << topic_pub_rxpk << std::endl;
+            }
         }
-
         std::cout << "uplink json:" << uplink_json.dump() << std::endl;
     } catch (const std::exception &e) {
         std::cerr << e.what() << '\n';
-        const char *err = "Failed to read udp";
-        std::cout << "Error:" << err << std::endl;
-        mosquitto_publish(mosq, NULL, topic_pub_gateway_stat.c_str(), strlen(err), err, mqtt_qos, false);
         return -1;
     }
     return 0;
@@ -399,12 +399,15 @@ static int recieve_pkt_tx_ack(evutil_socket_t fd)
     (void)fd;
     try {
         downlink_json = json::parse(buffer_up + 12);
-        if (downlink_json.contains("txpk_ack")) {
-            string str_txack = downlink_json.dump();
-            /* clang-format off */
-            mosquitto_publish(mosq, NULL, topic_pub_downlink_ack.c_str(), str_txack.length(), str_txack.c_str(), mqtt_qos, false);
-            std::cout << "publish topic:" << topic_pub_downlink_ack << ":" << str_txack << std::endl;
+        if (!topic_pub_downlink_ack.empty()) {
+            if (downlink_json.contains("txpk_ack")) {
+                string str_txack = downlink_json.dump();
+                /* clang-format off */
+                mosquitto_publish(mosq, NULL, topic_pub_downlink_ack.c_str(), str_txack.length(), str_txack.c_str(), mqtt_qos, false);
+                std::cout << "publish topic:" << topic_pub_downlink_ack << ":" << str_txack << std::endl;
+            }
         }
+
     } catch (const std::exception &e) {
         std::cerr << e.what() << '\n';
         return -1;
@@ -467,10 +470,12 @@ static int response_pkt_pull_data(evutil_socket_t fd)
         sendto(fd, buffer_down, sizeof(buffer_down), 0, (struct sockaddr *)&client_addr, client_len);
         try {
             downlink_json = json::parse(downlink_msg);
-            if (downlink_json.contains("txpk")) {
-                string str_txpk = downlink_json.dump();
-                mosquitto_publish(mosq, NULL, topic_pub_downlink.c_str(), str_txpk.length(), str_txpk.c_str(), mqtt_qos, false);
-                std::cout << "publish topic:" << topic_pub_downlink << ":" << str_txpk << std::endl;
+            if (!topic_pub_downlink.empty()) {
+                if (downlink_json.contains("txpk")) {
+                    string str_txpk = downlink_json.dump();
+                    mosquitto_publish(mosq, NULL, topic_pub_downlink.c_str(), str_txpk.length(), str_txpk.c_str(), mqtt_qos, false);
+                    std::cout << "publish topic:" << topic_pub_downlink << ":" << str_txpk << std::endl;
+                }
             }
             /* clang-format on */
         } catch (const std::exception &e) {
