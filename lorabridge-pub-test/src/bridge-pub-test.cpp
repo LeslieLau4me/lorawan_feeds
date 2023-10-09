@@ -19,13 +19,164 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <nlohmann/json.hpp>
+#include <toml.hpp>
 #define SERVER_IP_ADDR "127.0.0.1"
 #define MAX_LORA_MAC   6
 #define MAX_GATEWAY_ID 16
-
+#define BRIDGE_CONF_DEFAULT       "/etc/lorabridge/lorabridge.toml"
+#define BRIDGE_TOPIC_CONF_DEFAULT "/etc/lorabridge/lorabridge_topic.conf"
 using namespace std;
 using json = nlohmann::json;
 static string topic_sub_txpk;
+
+static int mqtt_keepalive = 60;
+
+static int     mqtt_port;
+static string  mqtt_host;
+static string  mqtt_username;
+static string  mqtt_password;
+static string  ca_file_path;
+static string  cert_file_path;
+static string  key_file_path;
+static string  client_id;
+static uint8_t mqtt_qos;
+static bool    mqtt_clean_session;
+
+class BridgeToml
+{
+  private:
+    toml::value toml_data;
+
+    string backend_type;
+    // backend.semtech_udp
+    string   udp_ip;
+    uint32_t udp_port = 0;
+    bool     skip_crc_check;
+    bool     fake_rx_time;
+
+    // integration.mqtt
+    string   event_topic_template;
+    string   command_topic_template;
+    uint32_t max_reconnect_interval = 0;
+
+    // integration.mqtt.auth
+    string mqtt_auth_type;
+    // integration.mqtt.auth.generic
+    string   generic_ip;
+    uint32_t generic_port = 0;
+    string   generic_username;
+    string   generic_password;
+    uint8_t  generic_qos = 0;
+    bool     generic_clean_session;
+    string   generic_client_id;
+    string   generic_ca_cert;
+    string   generic_tls_cert;
+    string   generic_tls_key;
+
+    void parse_toml_backend_udp(void);
+    void parse_toml_integration_generic(void);
+    void parse_local_for_each(void);
+
+  public:
+    BridgeToml();
+    ~BridgeToml();
+
+    void get_bridge_config_info(void);
+};
+
+BridgeToml::BridgeToml() {}
+BridgeToml::~BridgeToml() {}
+
+void BridgeToml::get_bridge_config_info(void)
+{
+    this->toml_data = toml::parse<toml::discard_comments>(BRIDGE_CONF_DEFAULT);
+    this->parse_local_for_each();
+    mqtt_host          = this->generic_ip;
+    mqtt_port          = this->generic_port;
+    ca_file_path       = this->generic_ca_cert;
+    cert_file_path     = this->generic_tls_cert;
+    key_file_path      = this->generic_tls_key;
+    client_id          = this->generic_client_id;
+    mqtt_username      = this->generic_username;
+    mqtt_password      = this->generic_password;
+    mqtt_qos           = this->generic_qos;
+    mqtt_clean_session = this->generic_clean_session;
+}
+
+void BridgeToml::parse_toml_backend_udp(void)
+{
+    const auto &backend = toml::find(toml_data, "backend");
+    this->backend_type  = toml::find<std::string>(backend, "type");
+
+    const auto &semtech_udp = toml::find(backend, "semtech_udp");
+    string      udp_bind    = toml::find<std::string>(semtech_udp, "udp_bind");
+    std::cout << "[Bridge]udp bind:" << udp_bind << std::endl;
+    auto  idx     = udp_bind.find(":");
+    char *ip_port = const_cast<char *>(udp_bind.c_str());
+    if (ip_port != NULL && idx > 0) {
+        char *ip       = strtok(ip_port, ":");
+        this->udp_ip   = string(ip);
+        char *port     = strtok(NULL, ":");
+        this->udp_port = atoi(port);
+    }
+    this->skip_crc_check = toml::find<bool>(semtech_udp, "skip_crc_check");
+    this->fake_rx_time   = toml::find<bool>(semtech_udp, "fake_rx_time");
+}
+
+void BridgeToml::parse_toml_integration_generic(void)
+{
+    // 定位到integration.mqtt
+    const auto &integration      = toml::find(this->toml_data, "integration");
+    const auto &mqtt             = toml::find(integration, "mqtt");
+    this->event_topic_template   = toml::find<std::string>(mqtt, "event_topic_template");
+    this->command_topic_template = toml::find<std::string>(mqtt, "command_topic_template");
+    const auto &auth             = toml::find(mqtt, "auth");
+    this->mqtt_auth_type         = toml::find<std::string>(auth, "type");
+    const auto generic           = toml::find(auth, "generic");
+    string     bind              = toml::find<std::string>(generic, "server");
+    std::cout << "[Bridge]mqtt generic bind: " << bind << std::endl;
+    auto   idx     = bind.find(":");
+    char  *ip_port = const_cast<char *>(bind.c_str());
+    string actual_ip;
+    if (ip_port != NULL && idx > 0) {
+        char *ip = strtok(ip_port, ":");
+        // tcp/ssl/http类型
+        if (strlen(ip) < strlen("0.0.0.0")) {
+            char *ip_part    = strtok(NULL, ":");
+            actual_ip        = string(ip) + string(":") + string(ip_part);
+            this->generic_ip = actual_ip;
+        } else {
+            this->generic_ip = string(ip);
+        }
+        char *port         = strtok(NULL, ":");
+        this->generic_port = atoi(port);
+        std::cout << "[Bridge]mqtt generic the port: " << port << std::endl;
+    }
+    std::cout << "[Bridge]mqtt generic the server: " << this->generic_ip << std::endl;
+    this->generic_username = toml::find<std::string>(generic, "username");
+    std::cout << "[Bridge]mqtt generic the username: " << this->generic_username << std::endl;
+    this->generic_password = toml::find<std::string>(generic, "password");
+    std::cout << "[Bridge]mqtt generic the password: " << this->generic_password << std::endl;
+    this->generic_qos = toml::find<std::uint32_t>(generic, "qos");
+    std::cout << "[Bridge]mqtt generic the qos:" << this->generic_qos << std::endl;
+    this->generic_clean_session = toml::find<bool>(generic, "clean_session");
+    std::cout << "[Bridge]mqtt generic the clean_session: "
+              << (this->generic_clean_session ? "true" : "false") << std::endl;
+    this->generic_client_id = toml::find<std::string>(generic, "client_id");
+    std::cout << "[Bridge]mqtt generic the client_id: " << this->generic_client_id << std::endl;
+    this->generic_ca_cert = toml::find<std::string>(generic, "ca_cert");
+    std::cout << "[Bridge]mqtt generic the ca_cert: " << this->generic_ca_cert << std::endl;
+    this->generic_tls_cert = toml::find<std::string>(generic, "tls_cert");
+    std::cout << "[Bridge]mqtt generic the tls_cert: " << this->generic_tls_cert << std::endl;
+    this->generic_tls_key = toml::find<std::string>(generic, "tls_key");
+    std::cout << "[Bridge]mqtt generic the tls_key: " << this->generic_tls_key << std::endl;
+}
+
+void BridgeToml::parse_local_for_each(void)
+{
+    this->parse_toml_backend_udp();
+    this->parse_toml_integration_generic();
+}
 
 static int get_local_eth_mac(unsigned char *mac_address)
 {
@@ -62,15 +213,31 @@ static int generate_gateway_id_by_mac(char *gw_id)
     return 0;
 }
 
-static int lora_BRIDGE_TOPIC_SET_mqtt_topic(void)
+static int lora_bridge_set_mqtt_topic(void)
 {
+    ifstream json_ifstream;
+    ofstream json_ofstream;
+    json     local_json;
+    string   eui;
+    try {
+        json_ifstream.open(BRIDGE_TOPIC_CONF_DEFAULT);
+        json_ifstream >> local_json;
+        json_ifstream.close();
+        eui = local_json["gateway_eui"];
+    } catch (const std::exception &e) {
+        std::cerr << e.what() << '\n';
+    }
     char gateway_eui[MAX_GATEWAY_ID + 1] = { 0 };
     if (generate_gateway_id_by_mac(gateway_eui) < 0) {
         std::cerr << "Failed to get eth mac." << std::endl;
         return -1;
     }
-
-    topic_sub_txpk = string("gateway/") + string(gateway_eui) + string("/event/") + string("tx");
+    if (eui != string(gateway_eui)) {
+        topic_sub_txpk = string("gateway/") + string(gateway_eui) + string("/event/") + string("tx");
+    } else {
+        std::cout << "Topic has been writen to file." << std::endl;
+        topic_sub_txpk = local_json["topic_sub_txpk"];
+    }
     std::cout << "Tx topic receiving tx packet:" << topic_sub_txpk << std::endl;
 
     return 0;
@@ -102,7 +269,7 @@ void publish_tx_data(struct mosquitto *mosq)
 	int rc = -1;
     json tx_json;
     tx_json["txpk"]["imme"] = true;
-    tx_json["txpk"]["freq"] = 912.3;
+    tx_json["txpk"]["freq"] = 912.123456;
     tx_json["txpk"]["rfch"] = 0;
     tx_json["txpk"]["powe"] = 12;
     tx_json["txpk"]["modu"] = "LORA";
@@ -118,9 +285,25 @@ void publish_tx_data(struct mosquitto *mosq)
 	}
 }
 
+static int parse_bridge_toml_file(void)
+{
+    BridgeToml toml;
+    try { // 读取lorabridge toml 配置参数
+        toml.get_bridge_config_info();
+    } catch (const std::exception &e) {
+        std::cerr << e.what() << '\n';
+        return -1;
+    }
+    return 0;
+}
+
 int main(void)
 {
-    if (lora_BRIDGE_TOPIC_SET_mqtt_topic() < 0) {
+    if (parse_bridge_toml_file() < 0) {
+        std::cerr << "Failed to parse bridge toml file." << std::endl;
+        return -1;
+    }
+    if (lora_bridge_set_mqtt_topic() < 0) {
         std::cerr << "Failed to setup mqtt topic." << std::endl;
         return -1;
     }
@@ -134,9 +317,33 @@ int main(void)
         perror("mqtt create failed");
         return -1;
     }
+    // 设置用户名和密码
+    if (!mqtt_username.empty() && !mqtt_password.empty()) {
+        std::cout << "Set username and password..." << std::endl;
+        mosquitto_username_pw_set(mosq, mqtt_username.c_str(), mqtt_password.c_str());
+    }
+    // 设置TLS选项
+    if (!ca_file_path.empty() && !key_file_path.empty() && !cert_file_path.empty()) {
+        std::cout << "Set TLS encryption...." << std::endl;
+        string folder_path;
+        auto pos = ca_file_path.find_last_not_of("/\\");
+        if (pos != string::npos) {
+            folder_path = ca_file_path.substr(0, pos);
+        }
+        if (folder_path.empty()) {
+            std::cerr << "Either cafile or capath must not be empty" << std::endl;
+            mosquitto_destroy(mosq);
+            mosquitto_lib_cleanup();
+            return -1;
+        }
+        printf("Cafile: %s, Cafile path: %s, Certfile:%s, Keyfile: %s\n",
+                ca_file_path.c_str(), folder_path.c_str(), cert_file_path.c_str(), key_file_path.c_str());
+        mosquitto_tls_set(mosq, ca_file_path.c_str(), folder_path.c_str(),
+                                cert_file_path.c_str(), key_file_path.c_str(), NULL);
+    }
     mosquitto_connect_callback_set(mosq, on_connect_publish);
     mosquitto_publish_callback_set(mosq, on_publish);
-    ret = mosquitto_connect(mosq, SERVER_IP_ADDR, 1883, 60);
+    ret = mosquitto_connect(mosq, mqtt_host.c_str(), mqtt_port, mqtt_keepalive);
     if (ret != MOSQ_ERR_SUCCESS) {
         mosquitto_destroy(mosq);
         fprintf(stderr, "Error: %s\n", mosquitto_strerror(ret));
@@ -151,6 +358,6 @@ int main(void)
     }
     while (1) {
         publish_tx_data(mosq);
-        sleep(1);
+        sleep(5);
     }
 }

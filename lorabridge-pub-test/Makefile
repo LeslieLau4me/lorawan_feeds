@@ -9,7 +9,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=bridge-pub-test
 
-PKG_BUILD_DEPENDS:=nlohmannjson
+PKG_BUILD_DEPENDS:=nlohmannjson toml11
 
 PKG_RELEASE:=1.0
 PKG_LICENSE:=GPLv3
