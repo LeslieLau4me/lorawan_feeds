@@ -355,7 +355,6 @@ static int response_pkt_push_data(evutil_socket_t fd)
                 std::cout << "publish topic:" << topic_pub_rxpk << std::endl;
             }
         }
-        std::cout << "uplink json:" << uplink_json.dump() << std::endl;
     } catch (const std::exception &e) {
         std::cerr << e.what() << '\n';
         return -1;
