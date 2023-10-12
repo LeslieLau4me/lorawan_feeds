@@ -15,7 +15,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=ssh://git@gitlab.minew.net:2022/gateway/openwrt/packages/gateway_package_sx1302_hal.git
-PKG_SOURCE_VERSION:=9ce9766c0586631b47314e1704c3ab6ee00f0d4f
+PKG_SOURCE_VERSION:=07d4e37c235fc3c9acbefac74e97f90048ba2434
 PKG_MAINTAINER:=Minew
 PKG_LICENSE_FILES:=LICENSE
 #PKG_BUILD_DIR:=$(BUILD_DIR)/sx1302_hal-$(PKG_VERSION)
@@ -32,6 +32,10 @@ endef
 
 define Package/sx1302_hal_wrt/description
   Utilities for SX1302/SX1303 Hardware Abstraction Layer
+endef
+
+define Package/sx1302_hal_wrt/config
+    source "$(SOURCE)/Config.in"
 endef
 
 CFLAGS = $(TARGET_CFLAGS)
@@ -83,8 +87,13 @@ define Package/sx1302_hal_wrt/install
 
 	$(INSTALL_DIR) $(1)/etc/lora_pkt_fwd
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packet_forwarder/global_conf.json.sx1250.* $(1)/etc/lora_pkt_fwd
+ifeq ($(CONFIG_LORA_SX1302_HAL_US915),y)
 	cp $(1)/etc/lora_pkt_fwd/global_conf.json.sx1250.US915 $(1)/etc/lora_pkt_fwd/global_conf.json
-
+else ifeq ($(CONFIG_LORA_SX1302_HAL_EU868),y)
+	cp $(1)/etc/lora_pkt_fwd/global_conf.json.sx1250.EU868 $(1)/etc/lora_pkt_fwd/global_conf.json
+else ifeq ($(CONFIG_LORA_SX1302_HAL_CN490),y)
+	cp $(1)/etc/lora_pkt_fwd/global_conf.json.sx1250.CN490 $(1)/etc/lora_pkt_fwd/global_conf.json
+endif
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/tools/reset_lgw.sh $(1)/usr/bin
 	chmod +x $(1)/usr/bin/reset_lgw.sh

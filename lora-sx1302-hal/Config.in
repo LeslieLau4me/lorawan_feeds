@@ -1,0 +1,25 @@
+config LORAWAN_FREQ_PLAN
+    default y
+
+choice
+    prompt "LoRaWAN Freq Plan selection"
+    default LORA_SX1302_HAL_US915
+
+    config LORA_SX1302_HAL_US915
+        bool "US915"
+        default y
+        help
+            Select this option for US915 configuration.
+
+    config LORA_SX1302_HAL_EU868
+        bool "EU868"
+        default n
+        help
+            Select this option for EU868 configuration.
+
+    config LORA_SX1302_HAL_CN490
+        bool "CN490"
+        default n
+        help
+            Select this option for CN490 configuration.
+endchoice
