@@ -259,10 +259,11 @@ start_service() {
         eth_status=$(ip link show eth0.2 | awk '/state/ {print $9}')
         usb_status=$(ip link show usb0 | awk '/state/ {print $9}')
         if [[ $eth_status != "UP" && $usb_status != "UP" ]];then
-                sleep $interval
+            echo "Network if is down, waiting...."
+            sleep $interval
         else
-                echo "if up, Network Ready."
-                break
+            echo "if up, Network Ready."
+            break
         fi
         sleep $interval
         ((elapsed +=interval))
