@@ -16,15 +16,39 @@ load_lora_mode() {
     echo $wm
 }
 
+check_eth0() {
+  if ip link show eth0.2 >/dev/null 2>&1; then
+    if ip link show eth0.2 | grep -q "state UP"; then
+      if ifconfig eth0.2 | grep -Eq 'inet (addr:)?([0-9]+\.){3}[0-9]+'; then
+        echo "eth0.2 up"
+        return 0
+      fi
+    fi
+  fi
+}
+
+check_usb0() {
+  if ip link show usb0 >/dev/null 2>&1; then
+      if ifconfig usb0 | grep -qE 'inet (addr:)?([0-9]+\.){3}[0-9]+'; then
+        echo "usb0 up"
+        return 0
+      fi
+  fi
+
+  return 1
+}
+
 start_service() {
     load_lora_mode
     timeout=300
     interval=5
     elapsed=0
     while true; do
-        eth_status=$(ip link show eth0.2 | awk '/state/ {print $9}')
-        usb_status=$(ip link show usb0 | awk '/state/ {print $9}')
-        if [[ $eth_status != "UP" && $usb_status != "UP" ]];then
+        check_eth0
+        eth_status=$?
+        check_usb0
+        usb_status=$?
+        if [[ $eth_status != 0 && $usb_status != 0 ]];then
             echo "Network if is down, waiting...."
             sleep $interval
         else
