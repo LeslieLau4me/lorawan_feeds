@@ -22,7 +22,6 @@ define Package/$(PKG_NAME)
   SUBMENU:=LoRaWAN
   DEPENDS:=+libevent2
   TITLE:=Netlink monitor
-  SUBMENU:=Tools
 endef
 
 define Package/$(PKG_NAME)/description
