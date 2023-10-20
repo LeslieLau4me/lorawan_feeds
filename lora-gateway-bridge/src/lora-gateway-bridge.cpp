@@ -666,7 +666,7 @@ int main(void)
     if (!ca_file_path.empty() && !key_file_path.empty() && !cert_file_path.empty()) {
         std::cout << "Set TLS encryption...." << std::endl;
         string folder_path;
-        auto pos = ca_file_path.find_last_not_of("/\\");
+        auto pos = ca_file_path.find_last_of("/\\");
         if (pos != string::npos) {
             folder_path = ca_file_path.substr(0, pos);
         }
