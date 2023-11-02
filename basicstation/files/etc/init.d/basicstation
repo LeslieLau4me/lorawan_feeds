@@ -270,6 +270,19 @@ check_eth0() {
       fi
     fi
   fi
+  return 1
+
+}
+
+check_wlan0() {
+  if ip link show wlan0 >/dev/null 2>&1; then
+      if ifconfig wlan0 | grep -qE 'inet (addr:)?([0-9]+\.){3}[0-9]+'; then
+        echo "wlan0 up"
+        return 0
+      fi
+  fi
+
+  return 1
 }
 
 start_service() {
@@ -282,7 +295,9 @@ start_service() {
         eth_status=$?
         check_usb0
         usb_status=$?
-        if [[ $eth_status != 0 && $usb_status != 0 ]];then
+        check_wlan0
+        wlan_status=$?
+        if [[ $eth_status != 0 && $usb_status != 0 && $wlan_status != 0]];then
             echo "Network if is down, waiting...."
             sleep $interval
         else
