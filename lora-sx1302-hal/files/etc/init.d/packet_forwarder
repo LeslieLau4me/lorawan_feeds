@@ -62,7 +62,7 @@ start_service() {
         usb_status=$?
         check_wlan0
         wlan_status=$?
-        if [[ $eth_status != 0 && $usb_status != 0 && $wlan_status != 0]];then
+        if [[ $eth_status != 0 && $usb_status != 0 && $wlan_status != 0 ]];then
             echo "Network if is down, waiting...."
             sleep $interval
         else
