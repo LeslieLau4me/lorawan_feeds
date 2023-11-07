@@ -31,6 +31,8 @@ define Package/quectel-cm/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/quectel-CM $(1)/usr/bin/
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/etc/init.d/quectel $(1)/etc/init.d/quectel
+	$(INSTALL_DIR) $(1)/etc/config
+	$(INSTALL_DATA) ./files/etc/quectel $(1)/etc/config/quectel
 endef
 
 $(eval $(call BuildPackage,quectel-cm))
