@@ -576,8 +576,8 @@ void udhcpc_start(PROFILE_T *profile) {
             pthread_create(&udhcpc_thread_id, &udhcpc_thread_attr, udhcpc_thread_function, (void*)strdup(udhcpc_cmd));
             sleep(1);
 #else
-            pthread_create(&udhcpc_thread_id, NULL, udhcpc_thread_function, (void*)strdup(udhcpc_cmd));
-            pthread_join(udhcpc_thread_id, NULL);
+           // pthread_create(&udhcpc_thread_id, NULL, udhcpc_thread_function, (void*)strdup(udhcpc_cmd));
+           // pthread_join(udhcpc_thread_id, NULL);
 
             if (profile->request_ops == &atc_request_ops
                 && !ql_netcard_ipv4_address_check(ifname, qmi2addr(profile->ipv4.Address))) {

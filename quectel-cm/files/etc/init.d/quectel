@@ -4,45 +4,43 @@ START=15
 STOP=60
 USE_PROCD=1
 
+start_service() {
+	config_load quectel
+	config_get disabled params disabled 0
 
-start_service(){	
-	#[ "$LTE_MODULE" = "0" ] && return
-		
-	#config_load quectel
-	#config_get enable quectel enable 1
-	
-	#[ "$enable" = "0" ] && return
+	[ "$disabled" = "1" ] && return
 
 	procd_open_instance
 	procd_set_param command /usr/bin/quectel-CM
-	
 
-	#config_get apn quectel apn
-	#config_get user quectel user
-	#config_get password quectel password
-	#config_get pincode quectel pincode
-	#config_get ipv6 quectel ipv6 0
+	config_get apn params apn
+	config_get user params user
+	config_get password params password
+	config_get auth params auth
+	config_get pincode params pincode
+	config_get ipv6 params ipv6 0
 
-	#[ -n "$apn" ] && procd_append_param command -s $apn
-	#[ -n "$apn" ] && [ -n "$user" ] && [ -n "$password" ] && procd_append_param command ${user} ${password}
-	#[ -n "$pincode" ] && procd_append_param command -p ${pincode}
-	#[ "$ipv6" = "1" ] && procd_append_param command -6
+	[ -n "$apn" ] && procd_append_param command -s $apn
+	[ -n "$apn" ] && [ -n "$user" ] && [ -n "$password" ] && procd_append_param command ${user} ${password}
+	[ -n "$password" ] && [ -n "$auth" ] && procd_append_param command ${auth}
+	[ -n "$pincode" ] && procd_append_param command -p ${pincode}
+	[ "$ipv6" = "1" ] && procd_append_param command -6
 
 	procd_set_param respawn 5 2 0
 	procd_close_instance
 }
 
-stop_service(){
+stop_service() {
 	service_stop /usr/bin/quectel-CM
 }
 
-service_triggers(){
+service_triggers() {
 	#killall quectel-CM
 	#ifup wan
 	procd_add_reload_trigger "quectel"
 }
 
-reload_service(){
-	stop 
+reload_service() {
+	stop
 	start
 }
