@@ -287,32 +287,32 @@ check_wlan0() {
 
 start_service() {
 	load_lora_mode
-    timeout=300
-    interval=5
-    elapsed=0
-    while true; do
-        check_eth0
-        eth_status=$?
-        check_usb0
-        usb_status=$?
-        check_wlan0
-        wlan_status=$?
-        if [[ $eth_status != 0 && $usb_status != 0 && $wlan_status != 0 ]];then
-            echo "Network if is down, waiting...."
-            sleep $interval
-        else
-            echo "if up, Network Ready."
-            break
-        fi
-        sleep $interval
-        ((elapsed +=interval))
-        if ((elapsed >= timeout));then
-            echo "Network timeout"
-            exit 0
-        fi
-    done
 	case "$wm" in
 	BAST)
+        timeout=300
+        interval=5
+        elapsed=0
+        while true; do
+            check_eth0
+            eth_status=$?
+            check_usb0
+            usb_status=$?
+            check_wlan0
+            wlan_status=$?
+            if [[ $eth_status != 0 && $usb_status != 0 && $wlan_status != 0 ]];then
+                echo "Network if is down, waiting...."
+                sleep $interval
+            else
+                echo "Network Ready."
+                break
+            fi
+            sleep $interval
+            ((elapsed +=interval))
+            if ((elapsed >= timeout));then
+                echo "Network timeout"
+                exit 0
+            fi
+        done
 		procd_open_instance
 		procd_set_param command /usr/bin/station
 		procd_append_param command --home /etc/basicstation/
