@@ -70,6 +70,7 @@ static string  mqtt_password;
 static string  ca_file_path;
 static string  cert_file_path;
 static string  key_file_path;
+static string  tls_pass_phrase;
 static string  client_id;
 static uint8_t mqtt_qos;
 static bool    mqtt_clean_session;
@@ -156,6 +157,7 @@ class BridgeToml
     string   generic_ca_cert;
     string   generic_tls_cert;
     string   generic_tls_key;
+    string   generic_pass_phrase;
 
     void parse_toml_backend_udp(void);
     void parse_toml_integration_generic(void);
@@ -185,6 +187,7 @@ void BridgeToml::get_bridge_config_info(void)
     mqtt_password      = this->generic_password;
     mqtt_qos           = this->generic_qos;
     mqtt_clean_session = this->generic_clean_session;
+    tls_pass_phrase    = this->generic_pass_phrase;
 }
 
 void BridgeToml::parse_toml_backend_udp(void)
@@ -241,6 +244,7 @@ void BridgeToml::parse_toml_integration_generic(void)
     this->generic_ca_cert = toml::find<std::string>(generic, "ca_cert");
     this->generic_tls_cert = toml::find<std::string>(generic, "tls_cert");
     this->generic_tls_key = toml::find<std::string>(generic, "tls_key");
+    this->generic_pass_phrase = toml::find<std::string>(generic, "tls_pass_phrase");
 }
 
 void BridgeToml::parse_local_for_each(void)
@@ -607,23 +611,21 @@ static int lora_bridge_set_mqtt_topic(void)
     return 0;
 }
 
+int password_cb(char *buf, int size, int rwflag, void *userdata)
+{
+    std::cout << "===enter tls pass phrase===" << std::endl << tls_pass_phrase << std::endl;
+    int len = tls_pass_phrase.length();
+    if (len < size) {
+        strcpy(buf, tls_pass_phrase.c_str());
+        buf[size - 1] = '\0';
+        return len;
+    }
+    return 0;
+}
+
 void *mqtt_message_thread(void *arg)
 {
     pthread_detach(pthread_self());
-    int ret = mosquitto_connect(mosq, mqtt_host.c_str(), mqtt_port, mqtt_keepalive);
-    if (ret != MOSQ_ERR_SUCCESS) {
-        fprintf(stderr, "Error: %s, program exit....\n", mosquitto_strerror(ret));
-        event_base_loopexit(evbase, NULL);
-        return NULL;
-    }
-    printf("Connected broker successfully, loop start....\n MQTT broker:%s:%d, QoS:%d, keepalive:%d \n",
-                                            mqtt_host.c_str(), mqtt_port, (int)mqtt_qos, mqtt_keepalive);
-    std::cout << "Uplink rx topic:" << topic_pub_rxpk << std::endl;
-    std::cout << "Downlink tx topic:" << topic_pub_downlink << std::endl;
-    std::cout << "Downlink tx ack topic:" << topic_pub_downlink_ack << std::endl;
-    std::cout << "Gateway statistics topic:" << topic_pub_gateway_stat << std::endl;
-    std::cout << "Tx topic receiving tx packet:" << topic_sub_txpk << std::endl;
-    has_connected = true;
     mosquitto_loop_forever(mosq, -1, 1);
     return NULL;
 }
@@ -664,22 +666,12 @@ int main(void)
     }
     // 设置TLS选项
     if (!ca_file_path.empty() && !key_file_path.empty() && !cert_file_path.empty()) {
+        auto capath = "/etc/ssl";
         std::cout << "Set TLS encryption...." << std::endl;
-        string folder_path;
-        auto pos = ca_file_path.find_last_of("/\\");
-        if (pos != string::npos) {
-            folder_path = ca_file_path.substr(0, pos);
-        }
-        if (folder_path.empty()) {
-            std::cerr << "Either cafile or capath must not be empty" << std::endl;
-            mosquitto_destroy(mosq);
-            mosquitto_lib_cleanup();
-            return -1;
-        }
         printf("Cafile: %s, Cafile path: %s, Certfile:%s, Keyfile: %s\n",
-                ca_file_path.c_str(), folder_path.c_str(), cert_file_path.c_str(), key_file_path.c_str());
-        mosquitto_tls_set(mosq, ca_file_path.c_str(), folder_path.c_str(),
-                                cert_file_path.c_str(), key_file_path.c_str(), NULL);
+                ca_file_path.c_str(), capath, cert_file_path.c_str(), key_file_path.c_str());
+        mosquitto_tls_set(mosq, ca_file_path.c_str(), capath, cert_file_path.c_str(), key_file_path.c_str(), password_cb);
+        mosquitto_tls_insecure_set(mosq, true);
     }
 
     // 创建事件处理器
@@ -704,6 +696,7 @@ int main(void)
     struct event *udp_ev = event_new(evbase, udp_socket, EV_READ | EV_PERSIST, read_cb, NULL);
     if (!udp_ev || event_add(udp_ev, NULL) < 0) {
         std::cerr << "Failed to create udp event." << std::endl;
+        close(udp_socket);
         event_base_free(evbase);
         mosquitto_destroy(mosq);
         mosquitto_lib_cleanup();
@@ -718,6 +711,7 @@ int main(void)
     if (bind(udp_socket, reinterpret_cast<const sockaddr *>(&serveraddr), sizeof(serveraddr)) ==
         -1) {
         std::cerr << "Failed to bind socket." << std::endl;
+        close(udp_socket);
         event_free(udp_ev);
         event_base_free(evbase);
         mosquitto_destroy(mosq);
@@ -728,23 +722,43 @@ int main(void)
     struct event *signal_event = evsignal_new(evbase, SIGINT, signal_cb, NULL);
     if (!signal_event || event_add(signal_event, NULL) < 0) {
         std::cerr << "Could not create/add a signal event!" << std::endl;
+        close(udp_socket);
         event_free(udp_ev);
         event_base_free(evbase);
         mosquitto_destroy(mosq);
         mosquitto_lib_cleanup();
         return -1;
     }
+    int ret = mosquitto_connect(mosq, mqtt_host.c_str(), mqtt_port, mqtt_keepalive);
+    if (ret != MOSQ_ERR_SUCCESS) {
+        fprintf(stderr, "Error: %s, program exit....\n", mosquitto_strerror(ret));
+        close(udp_socket);
+        event_free(udp_ev);
+        event_free(signal_event);
+        event_base_free(evbase);
+        mosquitto_destroy(mosq);
+        mosquitto_lib_cleanup();
+        return -1;
+    }
+    printf("Connected broker successfully, loop start....\n MQTT broker:%s:%d, QoS:%d, keepalive:%d \n",
+                                            mqtt_host.c_str(), mqtt_port, (int)mqtt_qos, mqtt_keepalive);
+    std::cout << "Uplink rx topic:" << topic_pub_rxpk << std::endl;
+    std::cout << "Downlink tx topic:" << topic_pub_downlink << std::endl;
+    std::cout << "Downlink tx ack topic:" << topic_pub_downlink_ack << std::endl;
+    std::cout << "Gateway statistics topic:" << topic_pub_gateway_stat << std::endl;
+    std::cout << "Tx topic receiving tx packet:" << topic_sub_txpk << std::endl;
+    has_connected = true;
 
     pthread_t mqtt_tid;
     pthread_create(&mqtt_tid, NULL, mqtt_message_thread, NULL);
 
     event_base_dispatch(evbase);
-    close(udp_socket);
-    if (has_connected) {
-        mosquitto_loop_stop(mosq, false);
-    }
+    mosquitto_loop_stop(mosq, false);
+    event_free(udp_ev);
+    event_free(signal_event);
     event_base_free(evbase);
     mosquitto_destroy(mosq);
     mosquitto_lib_cleanup();
+    close(udp_socket);
     return 0;
 }

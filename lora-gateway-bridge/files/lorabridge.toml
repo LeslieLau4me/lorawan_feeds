@@ -193,7 +193,8 @@ marshaler="protobuf"
     # mqtt TLS key file (optional)
     tls_key=""
 
-
+    # mqtt TLS pass phrase (optional)
+    tls_pass_phrase=""
     # Google Cloud Platform Cloud IoT Core authentication.
     #
     # Please note that when using this authentication type, the MQTT topics
@@ -297,7 +298,7 @@ marshaler="protobuf"
   [meta_data.static]
   # Example:
   # serial_number="A1B21234"
-  
+
 
 
   # Dynamic meta-data.
@@ -322,7 +323,7 @@ marshaler="protobuf"
   [meta_data.dynamic.commands]
   # Example:
   # temperature="/opt/gateway-temperature/gateway-temperature.sh"
-  
+
 
 # Executable commands.
 #
