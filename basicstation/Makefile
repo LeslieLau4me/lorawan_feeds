@@ -17,7 +17,7 @@ PKG_RELEASE:=$(AUTORELEASE)
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=ssh://git@gitlab.minew.net:2022/gateway/openwrt/packages/gateway_package_basicstation.git
-PKG_SOURCE_VERSION:=f8d992f69cad9896ae13505ecc8b573b890c4a76
+PKG_SOURCE_VERSION:=9df4c13041b89b4d90a2647bb288bd66134f7bff
 
 PKG_MAINTAINER:=Marcus Schref <mschref@tdt.de>
 PKG_LICENSE:=BSD-3-Clause
