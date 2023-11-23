@@ -70,6 +70,7 @@ define Package/basicstation/install
 
 	#chmod +x $(1)/etc/basicstation/reset_lgw.sh
 	chmod +x $(1)/usr/bin/rinit.sh
+	mkdir -p $(1)/etc/ssl/gw/tc_trust
 endef
 
 $(eval $(call BuildPackage,basicstation))
