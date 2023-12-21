@@ -1,59 +1,6 @@
-#include <arpa/inet.h>
-#include <cstdlib>
-#include <cstring>
-#include <errno.h>
-#include <event2/buffer.h>
-#include <event2/bufferevent.h>
-#include <event2/event.h>
-#include <event2/listener.h>
-#include <event2/util.h>
-#include <fcntl.h>
-#include <ifaddrs.h>
-#include <iostream>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <map>
-#include <mosquitto.h>
-#include <net/if.h>
-#include <netinet/in.h>
-#include <nlohmann/json.hpp>
-#include <openssl/ssl.h>
-#include <pthread.h>
-#include <queue>
-#include <signal.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <toml.hpp>
-#include <unistd.h>
-#include <vector>
+#include "lora-gateway-bridge.hpp"
+#include "base64.hpp"
 
-#define PROTOCOL_VERSION 2 /* v1.6 */
-#define PKT_PUSH_DATA    0
-#define PKT_PUSH_ACK     1
-#define PKT_PULL_DATA    2
-#define PKT_PULL_RESP    3
-#define PKT_PULL_ACK     4
-#define PKT_TX_ACK       5
-
-#define ETH_NAME_DEFAULT          "eth0"
-#define BRIDGE_CONF_DEFAULT       "/etc/lorabridge/lorabridge.toml"
-#define BRIDGE_TOPIC_CONF_DEFAULT "/etc/lorabridge/lorabridge_topic.conf"
-#define STATUS_SIZE               200
-#define NB_PKT_MAX                255 /* max number of packets per fetch/send cycle */
-#define TX_BUFF_SIZE              ((540 * NB_PKT_MAX) + 30 + STATUS_SIZE)
-#define MAX_LORA_MAC              6
-#define MAX_GATEWAY_ID            16
-#define LORAWAN_UDP_SERVER        "0.0.0.0"
-#define LORAWAN_UDP_PORT          1700
-
-#define MQTT_BROKER_DEFAULT    "127.0.0.1"
-#define MQTT_PORT_DEFAULT      1883
-#define MQTT_KEEPALIVE_DEFAULT 60
 using namespace std;
 using json = nlohmann::json;
 
@@ -99,6 +46,10 @@ uint8_t            buffer_down[1000]       = { 0 };
 struct sockaddr_in client_addr;
 socklen_t          client_len = sizeof(client_addr);
 
+static char   gateway_eui[MAX_GATEWAY_ID + 1] = { 0 };
+static string local_ip;
+static Base64 base_64_obj;
+
 /*
 存储订阅到的下行数据，即应用服务器发布的消息，节点内容如下：
 {"txpk":{
@@ -116,9 +67,9 @@ socklen_t          client_len = sizeof(client_addr);
 queue<string>   queue_downlink;
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static int  response_pkt_push_data(evutil_socket_t fd);
-static int  response_pkt_pull_data(evutil_socket_t fd);
-static int  recieve_pkt_tx_ack(evutil_socket_t fd);
+static int response_pkt_push_data(evutil_socket_t fd);
+static int response_pkt_pull_data(evutil_socket_t fd);
+static int recieve_pkt_tx_ack(evutil_socket_t fd);
 typedef int (*udp_pkt_cb)(evutil_socket_t fd);
 
 map<int, udp_pkt_cb> map_udp_pkt_cb = {
@@ -197,8 +148,8 @@ void BridgeToml::parse_toml_backend_udp(void)
 
     const auto &semtech_udp = toml::find(backend, "semtech_udp");
     string      udp_bind    = toml::find<std::string>(semtech_udp, "udp_bind");
-    auto  idx     = udp_bind.find(":");
-    char *ip_port = const_cast<char *>(udp_bind.c_str());
+    auto        idx         = udp_bind.find(":");
+    char       *ip_port     = const_cast<char *>(udp_bind.c_str());
     if (ip_port != NULL && idx > 0) {
         char *ip       = strtok(ip_port, ":");
         this->udp_ip   = string(ip);
@@ -220,9 +171,9 @@ void BridgeToml::parse_toml_integration_generic(void)
     this->mqtt_auth_type         = toml::find<std::string>(auth, "type");
     const auto generic           = toml::find(auth, "generic");
     string     bind              = toml::find<std::string>(generic, "server");
-    auto   idx     = bind.find(":");
-    char  *ip_port = const_cast<char *>(bind.c_str());
-    string actual_ip;
+    auto       idx               = bind.find(":");
+    char      *ip_port           = const_cast<char *>(bind.c_str());
+    string     actual_ip;
     if (ip_port != NULL && idx > 0) {
         char *ip = strtok(ip_port, ":");
         // tcp/ssl/http类型
@@ -236,15 +187,15 @@ void BridgeToml::parse_toml_integration_generic(void)
         char *port         = strtok(NULL, ":");
         this->generic_port = atoi(port);
     }
-    this->generic_username = toml::find<std::string>(generic, "username");
-    this->generic_password = toml::find<std::string>(generic, "password");
-    this->generic_qos = toml::find<std::uint32_t>(generic, "qos");
+    this->generic_username      = toml::find<std::string>(generic, "username");
+    this->generic_password      = toml::find<std::string>(generic, "password");
+    this->generic_qos           = toml::find<std::uint32_t>(generic, "qos");
     this->generic_clean_session = toml::find<bool>(generic, "clean_session");
-    this->generic_client_id = toml::find<std::string>(generic, "client_id");
-    this->generic_ca_cert = toml::find<std::string>(generic, "ca_cert");
-    this->generic_tls_cert = toml::find<std::string>(generic, "tls_cert");
-    this->generic_tls_key = toml::find<std::string>(generic, "tls_key");
-    this->generic_pass_phrase = toml::find<std::string>(generic, "tls_pass_phrase");
+    this->generic_client_id     = toml::find<std::string>(generic, "client_id");
+    this->generic_ca_cert       = toml::find<std::string>(generic, "ca_cert");
+    this->generic_tls_cert      = toml::find<std::string>(generic, "tls_cert");
+    this->generic_tls_key       = toml::find<std::string>(generic, "tls_key");
+    this->generic_pass_phrase   = toml::find<std::string>(generic, "tls_pass_phrase");
 }
 
 void BridgeToml::parse_local_for_each(void)
@@ -268,7 +219,8 @@ static void on_connect(struct mosquitto *mosq, void *obj, int rc)
         mosquitto_disconnect(mosq);
     } else {
         std::cout << "Connected to MQTT broker." << std::endl;
-        if (topic_sub_txpk.empty() || mosquitto_subscribe(mosq, NULL, topic_sub_txpk.c_str(), mqtt_qos) < 0) {
+        if (topic_sub_txpk.empty() ||
+            mosquitto_subscribe(mosq, NULL, topic_sub_txpk.c_str(), mqtt_qos) < 0) {
             std::cerr << "Failed to subscribe tx topic." << std::endl;
         }
     }
@@ -300,6 +252,179 @@ on_subscribe(struct mosquitto *mosq, void *obj, int mid, int qos_count, const in
 static void on_publish(struct mosquitto *mosq, void *obj, int mid)
 {
     std::cout << "Message published." << std::endl;
+}
+
+map<string, uint8_t> map_dr = {
+    { "SF7", 7 }, { "SF8", 8 }, { "SF9", 9 }, { "SF10", 10 }, { "SF11", 11 }, { "SF12", 12 },
+};
+
+map<string, uint16_t> map_bw = {
+    { "BW125", 125 },
+    { "BW250", 250 },
+    { "BW125", 500 },
+};
+
+static int parse_uplink_datr(string datr, uint8_t &dr, uint16_t &bw)
+{
+    bool dr_match = false;
+    bool bw_match = false;
+    for (const auto &iter : map_dr) {
+        if (datr.find(iter.first) != string::npos) {
+            dr       = iter.second;
+            dr_match = true;
+            break;
+        }
+    }
+    for (const auto &iter : map_bw) {
+        if (datr.find(iter.first) != string::npos) {
+            bw       = iter.second;
+            bw_match = true;
+            break;
+        }
+    }
+    if (dr_match == false || bw_match == false) {
+        std::cout << "WARN: wrong daterate or bw_match :" << datr << std::endl;
+        return -1;
+    }
+    return 0;
+}
+
+/*
+{
+    "phyPayload": "AAEBAQEBAQEBAQEBAQEBAQGXFgzLPxI=",  // base64 encoded LoRaWAN frame
+    "txInfo": {
+        "frequency": 868300000,
+        "modulation": "LORA",
+        "loRaModulationInfo": {
+            "bandwidth": 125,
+            "spreadingFactor": 11,
+            "codeRate": "4/5",
+            "polarizationInversion": false
+        }
+    },
+    "rxInfo": {
+        "gatewayID": "cnb/AC4GLBg=",
+        "time": "2018-07-26T15:15:58.599497Z",         // only set when the gateway has a GPS time source
+        "timestamp": 58692860,                         // gateway internal timestamp (23 bit)
+        "rssi": -55,
+        "loRaSNR": 15,
+        "channel": 2,
+        "rfChain": 0,
+        "board": 0,
+        "antenna": 0,
+        "fineTimestampType": "ENCRYPTED",
+        "encryptedFineTimestamp": {
+            "aesKeyIndex": 0,
+            "encryptedNS": "d2YFe51PraE3EpnrZJV4aw=="  // encrypted nanosecond part of the time
+        }
+    }
+}
+*/
+static void publish_chirpstack_format_uplink_json(json &json_up)
+{
+    string str_rxpk;
+    float freq = 0.0;
+    for (const auto &rxpk : uplink_json["rxpk"]) {
+        json_up["phyPayload"] = rxpk["data"];
+        if (rxpk["freq"].is_number_float()) {
+            freq = rxpk["freq"];
+            json_up["txInfo"]["frequency"] = freq * 1000000;
+        } else {
+            continue;
+        }
+        json_up["txInfo"]["modulation"] = rxpk["modu"];
+        string datr                     = rxpk["datr"];
+        if (!datr.empty()) {
+            uint8_t  dr;
+            uint16_t bw;
+            if (parse_uplink_datr(datr, dr, bw) < 0) {
+                continue;
+            }
+            json_up["txInfo"]["loRaModulationInfo"]["bandwidth"]       = bw;
+            json_up["txInfo"]["loRaModulationInfo"]["spreadingFactor"] = dr;
+            json_up["txInfo"]["loRaModulationInfo"]["codeRate"]        = rxpk["codr"];
+            // push 为 false，pull 为true
+            json_up["txInfo"]["loRaModulationInfo"]["polarizationInversion"] = false;
+        }
+        json_up["rxInfo"]["gatewayID"] = base_64_obj.encode(string(gateway_eui));
+        if (rxpk.contains("time")) {
+            json_up["rxInfo"]["time"] = rxpk["time"];
+        }
+        json_up["rxInfo"]["timestamp"] = rxpk["tmms"];
+        json_up["rxInfo"]["rssi"]      = rxpk["rssi"];
+        json_up["rxInfo"]["loRaSNR"]   = rxpk["lsnr"];
+        json_up["rxInfo"]["rfChain"]   = rxpk["rfch"];
+        json_up["rxInfo"]["board"]     = rxpk["brd"];
+
+        if (rxpk.contains("brd")) {
+            json_up["rxInfo"]["board"] = rxpk["brd"];
+        } else {
+            json_up["rxInfo"]["board"] = 0;
+        }
+
+        if (rxpk.contains("antenna")) {
+            json_up["rxInfo"]["antenna"] = rxpk["rsig"];
+        } else {
+            json_up["rxInfo"]["antenna"] = 0;
+        }
+        str_rxpk.clear();
+        str_rxpk = json_up.dump();
+        /* clang-format off */
+        std::cout << "publish topic:" << topic_pub_rxpk << std::endl;
+        mosquitto_publish(mosq, NULL, topic_pub_rxpk.c_str(), str_rxpk.length(), str_rxpk.c_str(), mqtt_qos, false);
+        /* clang-format on */
+    }
+}
+
+static string get_iface_ip_address(void)
+{
+    struct ifaddrs *ifaddr, *ifa;
+    char            ip[INET_ADDRSTRLEN];
+    auto iface_name = "eth0.2";
+
+    if (getifaddrs(&ifaddr) == -1) {
+        perror("Failed to get interface addresses");
+        return "";
+    }
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr == NULL || ifa->ifa_addr->sa_family != AF_INET) {
+            continue;
+        }
+        struct sockaddr_in *addr = (struct sockaddr_in *)ifa->ifa_addr;
+        inet_ntop(AF_INET, &(addr->sin_addr), ip, INET_ADDRSTRLEN);
+        if (strcmp(ifa->ifa_name, iface_name)) {
+            printf("Interface: %s, IP: %s\n", ifa->ifa_name, ip);
+            freeifaddrs(ifaddr);
+            return string(ip);
+        }
+    }
+
+    freeifaddrs(ifaddr);
+    return "";
+}
+
+static void publish_chirpstack_format_stat_json(json &json_stat)
+{
+    string str_stat;
+    json_stat["gatewayID"] = base_64_obj.encode(string(gateway_eui));
+    if (local_ip.empty()) {
+        local_ip        = get_iface_ip_address();
+        json_stat["ip"] = local_ip;
+    } else {
+        json_stat["ip"] = local_ip;
+    }
+
+    json_stat["configVersion"]       = "1.2.3";
+    json_stat["rxPacketsReceived"]   = json_stat["stat"]["rxnb"];
+    json_stat["rxPacketsReceivedOK"] = json_stat["stat"]["rxok"];
+    json_stat["txPacketsReceived"]   = json_stat["stat"]["dwnb"];
+    json_stat["txPacketsEmitted"]    = json_stat["stat"]["txnb"];
+
+    str_stat = json_stat.dump();
+    std::cout << "publish topic:" << topic_pub_gateway_stat << std::endl;
+    /* clang-format off */
+    mosquitto_publish(mosq, NULL, topic_pub_gateway_stat.c_str(), str_stat.length(), str_stat.c_str(), mqtt_qos, false);
+    /* clang-format on */
 }
 
 /*
@@ -344,19 +469,14 @@ static int response_pkt_push_data(evutil_socket_t fd)
             if (uplink_json.contains("stat")) {
                 // uplink_stat_json         = uplink_json["stat"];
                 uplink_stat_json["stat"] = uplink_json["stat"];
-                string str_stat          = uplink_stat_json.dump();
-                std::cout << "publish topic:" << topic_pub_gateway_stat << std::endl;
-                mosquitto_publish(mosq, NULL, topic_pub_gateway_stat.c_str(), str_stat.length(), str_stat.c_str(), mqtt_qos, false);
+                publish_chirpstack_format_stat_json(uplink_stat_json);
             }
         }
         if (!topic_pub_rxpk.empty()) {
             if (uplink_json.contains("rxpk")) {
                 // uplink_rx_json           = uplink_json["rxpk"];
                 uplink_rx_json["rxpk"] = uplink_json["rxpk"];
-                string str_rxpk        = uplink_rx_json.dump();
-                // 将上行数据发布到MQTT主题
-                mosquitto_publish(mosq, NULL, topic_pub_rxpk.c_str(), str_rxpk.length(), str_rxpk.c_str(), mqtt_qos, false);
-                std::cout << "publish topic:" << topic_pub_rxpk << std::endl;
+                publish_chirpstack_format_uplink_json(uplink_rx_json);
             }
         }
     } catch (const std::exception &e) {
@@ -579,7 +699,7 @@ static int lora_bridge_set_mqtt_topic(void)
     } catch (const std::exception &e) {
         std::cerr << e.what() << '\n';
     }
-    char gateway_eui[MAX_GATEWAY_ID + 1] = { 0 };
+
     if (generate_gateway_id_by_mac(gateway_eui) < 0) {
         std::cerr << "Failed to get eth mac." << std::endl;
         return -1;
@@ -669,8 +789,16 @@ int main(void)
         auto capath = "/etc/ssl";
         std::cout << "Set TLS encryption...." << std::endl;
         printf("Cafile: %s, Cafile path: %s, Certfile:%s, Keyfile: %s\n",
-                ca_file_path.c_str(), capath, cert_file_path.c_str(), key_file_path.c_str());
-        mosquitto_tls_set(mosq, ca_file_path.c_str(), capath, cert_file_path.c_str(), key_file_path.c_str(), password_cb);
+               ca_file_path.c_str(),
+               capath,
+               cert_file_path.c_str(),
+               key_file_path.c_str());
+        mosquitto_tls_set(mosq,
+                          ca_file_path.c_str(),
+                          capath,
+                          cert_file_path.c_str(),
+                          key_file_path.c_str(),
+                          password_cb);
         mosquitto_tls_insecure_set(mosq, true);
     }
 
@@ -740,8 +868,12 @@ int main(void)
         mosquitto_lib_cleanup();
         return -1;
     }
-    printf("Connected broker successfully, loop start....\n MQTT broker:%s:%d, QoS:%d, keepalive:%d \n",
-                                            mqtt_host.c_str(), mqtt_port, (int)mqtt_qos, mqtt_keepalive);
+    printf("Connected broker successfully, loop start....\n MQTT broker:%s:%d, QoS:%d, "
+           "keepalive:%d \n",
+           mqtt_host.c_str(),
+           mqtt_port,
+           (int)mqtt_qos,
+           mqtt_keepalive);
     std::cout << "Uplink rx topic:" << topic_pub_rxpk << std::endl;
     std::cout << "Downlink tx topic:" << topic_pub_downlink << std::endl;
     std::cout << "Downlink tx ack topic:" << topic_pub_downlink_ack << std::endl;
