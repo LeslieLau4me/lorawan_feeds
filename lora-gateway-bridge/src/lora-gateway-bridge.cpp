@@ -426,6 +426,21 @@ static void publish_chirpstack_format_stat_json(const json &json_stat)
     } else {
         json_pub["ip"] = local_ip;
     }
+    json_pub["time"] = json_stat["stat"]["time"];
+
+    // GPS setting
+
+    if (json_stat["stat"].contains("lati")) {
+        json_pub["location"]["latitude"] = json_stat["stat"]["lati"];
+    }
+
+    if (json_stat["stat"].contains("long")) {
+        json_pub["location"]["longitude"] = json_stat["stat"]["long"];
+    }
+
+    if (json_stat["stat"].contains("alti")) {
+        json_pub["location"]["altitude"] = json_stat["stat"]["alti"];
+    }
 
     // json_pub["configVersion"]       = "1.2.3";
     json_pub["rxPacketsReceived"]   = json_stat["stat"]["rxnb"];
