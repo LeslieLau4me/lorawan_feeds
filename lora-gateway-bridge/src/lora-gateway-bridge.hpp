@@ -1,6 +1,7 @@
 #ifndef _LORA_GATEWAY_BRIDGE_H
 #define _LORA_GATEWAY_BRIDGE_H
 
+#include "base64.hpp"
 #include <arpa/inet.h>
 #include <cstdlib>
 #include <cstring>
@@ -23,6 +24,7 @@
 #include <openssl/ssl.h>
 #include <pthread.h>
 #include <queue>
+#include <random>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -34,7 +36,6 @@
 #include <toml.hpp>
 #include <unistd.h>
 #include <vector>
-#include "base64.hpp"
 
 #define PROTOCOL_VERSION 2 /* v1.6 */
 #define PKT_PUSH_DATA    0
@@ -58,5 +59,7 @@
 #define MQTT_BROKER_DEFAULT    "127.0.0.1"
 #define MQTT_PORT_DEFAULT      1883
 #define MQTT_KEEPALIVE_DEFAULT 60
+
+
 
 #endif

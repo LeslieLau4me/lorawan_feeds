@@ -12,14 +12,13 @@ Description:
 License: Revised BSD License, see LICENSE.TXT file include in the project
 */
 
-#ifndef _BASE64_H
-    #define _BASE64_H
+#ifndef _BASE64_H_
+#define _BASE64_H_
 
-    #include <iostream>
-    #include <string>
+#include <iostream>
+#include <string>
 
 using namespace std;
-
 class Base64
 {
   public:

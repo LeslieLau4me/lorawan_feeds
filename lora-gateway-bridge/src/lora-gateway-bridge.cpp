@@ -35,11 +35,6 @@ static string topic_pub_gateway_stat;
 
 static string topic_sub_txpk;
 
-static json uplink_rx_json;
-static json uplink_stat_json;
-static json uplink_json;
-static json downlink_json;
-
 //上下行buffer 和packet forwarder 保持一致
 uint8_t            buffer_up[TX_BUFF_SIZE] = { 0 };
 uint8_t            buffer_down[1000]       = { 0 };
@@ -49,6 +44,16 @@ socklen_t          client_len = sizeof(client_addr);
 static char   gateway_eui[MAX_GATEWAY_ID + 1] = { 0 };
 static string local_ip;
 static Base64 base_64_obj;
+
+map<string, uint8_t> map_dr = {
+    { "SF7", 7 }, { "SF8", 8 }, { "SF9", 9 }, { "SF10", 10 }, { "SF11", 11 }, { "SF12", 12 },
+};
+
+map<string, uint16_t> map_bw = {
+    { "BW125", 125 },
+    { "BW250", 250 },
+    { "BW125", 500 },
+};
 
 /*
 存储订阅到的下行数据，即应用服务器发布的消息，节点内容如下：
@@ -65,7 +70,7 @@ static Base64 base_64_obj;
 }}
 */
 queue<string>   queue_downlink;
-pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t queue_downlink_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static int response_pkt_push_data(evutil_socket_t fd);
 static int response_pkt_pull_data(evutil_socket_t fd);
@@ -254,16 +259,6 @@ static void on_publish(struct mosquitto *mosq, void *obj, int mid)
     std::cout << "Message published." << std::endl;
 }
 
-map<string, uint8_t> map_dr = {
-    { "SF7", 7 }, { "SF8", 8 }, { "SF9", 9 }, { "SF10", 10 }, { "SF11", 11 }, { "SF12", 12 },
-};
-
-map<string, uint16_t> map_bw = {
-    { "BW125", 125 },
-    { "BW250", 250 },
-    { "BW125", 500 },
-};
-
 static int parse_uplink_datr(string datr, uint8_t &dr, uint16_t &bw)
 {
     bool dr_match = false;
@@ -286,6 +281,7 @@ static int parse_uplink_datr(string datr, uint8_t &dr, uint16_t &bw)
         std::cout << "WARN: wrong daterate or bw_match :" << datr << std::endl;
         return -1;
     }
+
     return 0;
 }
 
@@ -320,55 +316,64 @@ static int parse_uplink_datr(string datr, uint8_t &dr, uint16_t &bw)
     }
 }
 */
-static void publish_chirpstack_format_uplink_json(json &json_up)
+static void publish_chirpstack_format_uplink_json(const json &json_up)
 {
     string str_rxpk;
-    float freq = 0.0;
-    for (const auto &rxpk : uplink_json["rxpk"]) {
-        json_up["phyPayload"] = rxpk["data"];
+    double freq = 0.0;
+    json   json_pub;
+    for (const auto &rxpk : json_up["rxpk"]) {
+        json_pub["phyPayloadSize"] = rxpk["size"];
+        json_pub["phyPayload"]     = rxpk["data"];
         if (rxpk["freq"].is_number_float()) {
-            freq = rxpk["freq"];
-            json_up["txInfo"]["frequency"] = freq * 1000000;
+            freq                            = rxpk["freq"];
+            json_pub["txInfo"]["frequency"] = static_cast<uint64_t>(freq * 1000000);
         } else {
             continue;
         }
-        json_up["txInfo"]["modulation"] = rxpk["modu"];
-        string datr                     = rxpk["datr"];
+        json_pub["txInfo"]["modulation"] = rxpk["modu"];
+        string datr                      = rxpk["datr"];
         if (!datr.empty()) {
             uint8_t  dr;
             uint16_t bw;
             if (parse_uplink_datr(datr, dr, bw) < 0) {
                 continue;
             }
-            json_up["txInfo"]["loRaModulationInfo"]["bandwidth"]       = bw;
-            json_up["txInfo"]["loRaModulationInfo"]["spreadingFactor"] = dr;
-            json_up["txInfo"]["loRaModulationInfo"]["codeRate"]        = rxpk["codr"];
+            json_pub["txInfo"]["loRaModulationInfo"]["bandwidth"]       = bw;
+            json_pub["txInfo"]["loRaModulationInfo"]["spreadingFactor"] = dr;
+            json_pub["txInfo"]["loRaModulationInfo"]["codeRate"]        = rxpk["codr"];
             // push 为 false，pull 为true
-            json_up["txInfo"]["loRaModulationInfo"]["polarizationInversion"] = false;
+            // json_pub["txInfo"]["loRaModulationInfo"]["polarizationInversion"] = false;
         }
-        json_up["rxInfo"]["gatewayID"] = base_64_obj.encode(string(gateway_eui));
+        json_pub["rxInfo"]["gatewayID"] = base_64_obj.encode(string(gateway_eui));
         if (rxpk.contains("time")) {
-            json_up["rxInfo"]["time"] = rxpk["time"];
+            json_pub["rxInfo"]["time"] = rxpk["time"];
         }
-        json_up["rxInfo"]["timestamp"] = rxpk["tmms"];
-        json_up["rxInfo"]["rssi"]      = rxpk["rssi"];
-        json_up["rxInfo"]["loRaSNR"]   = rxpk["lsnr"];
-        json_up["rxInfo"]["rfChain"]   = rxpk["rfch"];
-        json_up["rxInfo"]["board"]     = rxpk["brd"];
-
-        if (rxpk.contains("brd")) {
-            json_up["rxInfo"]["board"] = rxpk["brd"];
-        } else {
-            json_up["rxInfo"]["board"] = 0;
+        json_pub["rxInfo"]["timestamp"] = rxpk["tmst"];
+        if (rxpk.contains("ftime")) {
+            json_pub["rxInfo"]["fineTimestampType"] = rxpk["ftime"];
         }
-
-        if (rxpk.contains("antenna")) {
-            json_up["rxInfo"]["antenna"] = rxpk["rsig"];
-        } else {
-            json_up["rxInfo"]["antenna"] = 0;
+        json_pub["rxInfo"]["rssi"] = rxpk["rssi"];
+        if (rxpk.contains("rssis")) {
+            json_pub["rxInfo"]["rssis"] = rxpk["rssis"];
+        }
+        if (rxpk.contains("lsnr")) {
+            json_pub["rxInfo"]["loRaSNR"] = rxpk["lsnr"];
+        }
+        json_pub["rxInfo"]["channel"] = rxpk["chan"];
+        json_pub["rxInfo"]["rfChain"] = rxpk["rfch"];
+        if (rxpk.contains("foff")) {
+            json_pub["rxInfo"]["LoRaFreqOffset"] = rxpk["foff"];
+        }
+        if (rxpk.contains("mid")) {
+            // Concentrator modem ID on which pkt has been received
+            json_pub["rxInfo"]["board"] = rxpk["mid"];
+        }
+        if (rxpk.contains("stat")) {
+            // Concentrator modem ID on which pkt has been received
+            json_pub["rxInfo"]["CRCStatus"] = rxpk["stat"];
         }
         str_rxpk.clear();
-        str_rxpk = json_up.dump();
+        str_rxpk = json_pub.dump();
         /* clang-format off */
         std::cout << "publish topic:" << topic_pub_rxpk << std::endl;
         mosquitto_publish(mosq, NULL, topic_pub_rxpk.c_str(), str_rxpk.length(), str_rxpk.c_str(), mqtt_qos, false);
@@ -376,11 +381,18 @@ static void publish_chirpstack_format_uplink_json(json &json_up)
     }
 }
 
+static void publish_semtech_udp_uplink_json(const json &json_up)
+{
+    string str_rxpk = json_up.dump();
+    mosquitto_publish(
+        mosq, NULL, topic_pub_rxpk.c_str(), str_rxpk.length(), str_rxpk.c_str(), mqtt_qos, false);
+}
+
 static string get_iface_ip_address(void)
 {
     struct ifaddrs *ifaddr, *ifa;
     char            ip[INET_ADDRSTRLEN];
-    auto iface_name = "eth0.2";
+    auto            iface_name = "eth";
 
     if (getifaddrs(&ifaddr) == -1) {
         perror("Failed to get interface addresses");
@@ -392,7 +404,7 @@ static string get_iface_ip_address(void)
         }
         struct sockaddr_in *addr = (struct sockaddr_in *)ifa->ifa_addr;
         inet_ntop(AF_INET, &(addr->sin_addr), ip, INET_ADDRSTRLEN);
-        if (strcmp(ifa->ifa_name, iface_name)) {
+        if (strstr(ifa->ifa_name, iface_name)) {
             printf("Interface: %s, IP: %s\n", ifa->ifa_name, ip);
             freeifaddrs(ifaddr);
             return string(ip);
@@ -403,24 +415,34 @@ static string get_iface_ip_address(void)
     return "";
 }
 
-static void publish_chirpstack_format_stat_json(json &json_stat)
+static void publish_chirpstack_format_stat_json(const json &json_stat)
 {
     string str_stat;
-    json_stat["gatewayID"] = base_64_obj.encode(string(gateway_eui));
+    json   json_pub;
+    json_pub["gatewayID"] = base_64_obj.encode(string(gateway_eui));
     if (local_ip.empty()) {
-        local_ip        = get_iface_ip_address();
-        json_stat["ip"] = local_ip;
+        local_ip       = get_iface_ip_address();
+        json_pub["ip"] = local_ip;
     } else {
-        json_stat["ip"] = local_ip;
+        json_pub["ip"] = local_ip;
     }
 
-    json_stat["configVersion"]       = "1.2.3";
-    json_stat["rxPacketsReceived"]   = json_stat["stat"]["rxnb"];
-    json_stat["rxPacketsReceivedOK"] = json_stat["stat"]["rxok"];
-    json_stat["txPacketsReceived"]   = json_stat["stat"]["dwnb"];
-    json_stat["txPacketsEmitted"]    = json_stat["stat"]["txnb"];
+    // json_pub["configVersion"]       = "1.2.3";
+    json_pub["rxPacketsReceived"]   = json_stat["stat"]["rxnb"];
+    json_pub["rxPacketsReceivedOK"] = json_stat["stat"]["rxok"];
+    json_pub["txPacketsReceived"]   = json_stat["stat"]["dwnb"];
+    json_pub["txPacketsEmitted"]    = json_stat["stat"]["txnb"];
 
-    str_stat = json_stat.dump();
+    str_stat = json_pub.dump();
+    std::cout << "publish topic:" << topic_pub_gateway_stat << std::endl;
+    /* clang-format off */
+    mosquitto_publish(mosq, NULL, topic_pub_gateway_stat.c_str(), str_stat.length(), str_stat.c_str(), mqtt_qos, false);
+    /* clang-format on */
+}
+
+static void publish_semtech_udp_stat_json(const json &json_stat)
+{
+    string str_stat = json_stat.dump();
     std::cout << "publish topic:" << topic_pub_gateway_stat << std::endl;
     /* clang-format off */
     mosquitto_publish(mosq, NULL, topic_pub_gateway_stat.c_str(), str_stat.length(), str_stat.c_str(), mqtt_qos, false);
@@ -453,6 +475,7 @@ PUSH_DATA packets received.
 */
 static int response_pkt_push_data(evutil_socket_t fd)
 {
+    json    uplink_json;
     uint8_t ack[32] = { 0 };
     ack[0]          = buffer_up[0];
     ack[1]          = buffer_up[1];
@@ -460,23 +483,17 @@ static int response_pkt_push_data(evutil_socket_t fd)
     ack[3]          = PKT_PUSH_ACK;
     sendto(fd, ack, sizeof(ack), 0, (struct sockaddr *)&client_addr, client_len);
     uplink_json.clear();
-    uplink_rx_json.clear();
-    uplink_stat_json.clear();
     /* clang-format off */
     try {
         uplink_json = json::parse(buffer_up + 12);
         if (!topic_pub_gateway_stat.empty()) {
             if (uplink_json.contains("stat")) {
-                // uplink_stat_json         = uplink_json["stat"];
-                uplink_stat_json["stat"] = uplink_json["stat"];
-                publish_chirpstack_format_stat_json(uplink_stat_json);
+                publish_chirpstack_format_stat_json(uplink_json);
             }
         }
         if (!topic_pub_rxpk.empty()) {
             if (uplink_json.contains("rxpk")) {
-                // uplink_rx_json           = uplink_json["rxpk"];
-                uplink_rx_json["rxpk"] = uplink_json["rxpk"];
-                publish_chirpstack_format_uplink_json(uplink_rx_json);
+                publish_chirpstack_format_uplink_json(uplink_json);
             }
         }
     } catch (const std::exception &e) {
@@ -507,6 +524,7 @@ static int recieve_pkt_tx_ack(evutil_socket_t fd)
 {
     /* clang-format on */
     (void)fd;
+    json downlink_json;
     try {
         downlink_json = json::parse(buffer_up + 12);
         if (!topic_pub_downlink_ack.empty()) {
@@ -558,7 +576,8 @@ metadata that will have to be emitted by the gateway.
 */
 static int response_pkt_pull_data(evutil_socket_t fd)
 {
-    pthread_mutex_lock(&queue_mutex);
+    json downlink_json;
+    pthread_mutex_lock(&queue_downlink_mutex);
     // 无数据下发则发ack，有数据则发数据
     if (queue_downlink.empty()) {
         uint8_t ack[32] = { 0 };
@@ -590,11 +609,11 @@ static int response_pkt_pull_data(evutil_socket_t fd)
             /* clang-format on */
         } catch (const std::exception &e) {
             std::cerr << e.what() << '\n';
-            pthread_mutex_unlock(&queue_mutex);
+            pthread_mutex_unlock(&queue_downlink_mutex);
             return -1;
         }
     }
-    pthread_mutex_unlock(&queue_mutex);
+    pthread_mutex_unlock(&queue_downlink_mutex);
     return 0;
 }
 
@@ -610,7 +629,9 @@ static void read_cb(evutil_socket_t fd, short events, void *arg)
     if (map_udp_pkt_cb.count(mode)) {
         // 执行消息处理的回调
         int ret = map_udp_pkt_cb[mode](fd);
-        if (ret < 0) {}
+        if (ret < 0) {
+            std::cout << "WARN: [readcb]Something went wrong.." << std::endl;
+        }
     }
 }
 
@@ -633,9 +654,9 @@ on_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_messag
 {
     std::cout << "Received MQTT message on topic: " << message->topic << std::endl;
     std::string payload(static_cast<const char *>(message->payload), message->payloadlen);
-    pthread_mutex_lock(&queue_mutex);
+    pthread_mutex_lock(&queue_downlink_mutex);
     queue_downlink.push(payload);
-    pthread_mutex_unlock(&queue_mutex);
+    pthread_mutex_unlock(&queue_downlink_mutex);
 }
 
 static int parse_bridge_toml_file(void)
@@ -784,6 +805,7 @@ int main(void)
         std::cout << "Set username and password..." << std::endl;
         mosquitto_username_pw_set(mosq, mqtt_username.c_str(), mqtt_password.c_str());
     }
+
     // 设置TLS选项
     if (!ca_file_path.empty() && !key_file_path.empty() && !cert_file_path.empty()) {
         auto capath = "/etc/ssl";
