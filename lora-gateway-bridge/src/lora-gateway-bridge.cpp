@@ -561,7 +561,7 @@ static void publish_chirpstack_format_downlink_ack_json(const json &json_downlin
     string str_txack;
     json   json_pub;
     json_pub["gatewayID"]        = base_64_obj.encode(string(gateway_eui));
-    json_pub["gatewayTimeStamp"] = time(nullptr);
+    json_pub["gatewayTimestamp"] = time(nullptr);
     json_pub["downlinkAck"]      = json_downlink_ack["txpk_ack"];
     str_txack                    = json_pub.dump();
     /* clang-format off */
