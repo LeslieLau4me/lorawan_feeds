@@ -43,6 +43,7 @@ static uint8_t mqtt_qos;
 static bool    mqtt_clean_session;
 
 static double tx_freq = 0.0;
+typedef void (*publish_data)(struct mosquitto *);
 
 class BridgeToml
 {
@@ -253,7 +254,7 @@ void on_publish(struct mosquitto *mosq, void *obj, int mid)
 	printf("Message with mid %d has been published.\n", mid);
 }
 
-void publish_tx_data(struct mosquitto *mosq)
+void publish_lora_tx_data(struct mosquitto *mosq)
 {
 	int rc = -1;
     json tx_json;
@@ -265,6 +266,26 @@ void publish_tx_data(struct mosquitto *mosq)
     tx_json["txpk"]["datr"] = "SF11BW125";
     tx_json["txpk"]["codr"] = "4/6";
     tx_json["txpk"]["ipol"] = false;
+    tx_json["txpk"]["size"] = 32;
+    tx_json["txpk"]["data"] = "H3P3N2i9qc4yt7rK7ldqoeCVJGBybzPY5h1Dd7P7p8v";
+    string tx_string = tx_json.dump();
+	rc = mosquitto_publish(mosq, NULL, topic_sub_txpk.c_str(), tx_string.length(), tx_string.c_str(), 0, false);
+	if(rc != MOSQ_ERR_SUCCESS){
+		fprintf(stderr, "Error publishing: %s\n", mosquitto_strerror(rc));
+	}
+}
+
+void publish_fsk_tx_data(struct mosquitto *mosq)
+{
+	int rc = -1;
+    json tx_json;
+    tx_json["txpk"]["imme"] = true;
+    tx_json["txpk"]["freq"] = tx_freq;
+    tx_json["txpk"]["rfch"] = 0;
+    tx_json["txpk"]["powe"] = 12;
+    tx_json["txpk"]["modu"] = "FSK";
+    tx_json["txpk"]["datr"] = 50000;
+    tx_json["txpk"]["fdev"] = 3000;
     tx_json["txpk"]["size"] = 32;
     tx_json["txpk"]["data"] = "H3P3N2i9qc4yt7rK7ldqoeCVJGBybzPY5h1Dd7P7p8v";
     string tx_string = tx_json.dump();
@@ -288,8 +309,10 @@ static int parse_bridge_toml_file(void)
 
 int main(int argc, char const *argv[])
 {
-    if (argc < 2) {
-        std::cerr << "Format:" << argv[0] << " " << "{{feq}} e.g:" << argv[0] << " 923.123456" << std::endl;
+    bool lora_mode;
+    publish_data mqtt_publish;
+    if (argc < 3) {
+        std::cerr << "Format:" << argv[0] << " " << "{{feq}} e.g:" << argv[0] << " 923.123456" << " LoRa(FSK)" << std::endl;
         printf("US915 feq: min: 923.00 max: 928.00 \n");
         printf("EU868 feq: min: 863.00 max: 870.00 \n");
         printf("US915 feq: min: 500.00 max: 510.00 \n");
@@ -304,6 +327,17 @@ int main(int argc, char const *argv[])
             printf("US915 feq: min: 500.00 max: 510.00 \n");
             return -1;
         }
+        if (string(argv[2]) == "FSK") {
+            lora_mode = false;
+            mqtt_publish = publish_fsk_tx_data;
+        } else if (string(argv[2]) == "LoRa") {
+            lora_mode = true;
+            mqtt_publish = publish_lora_tx_data;
+        } else {
+            printf("Error Modulation..\n");
+            return -1;
+        }
+
     }
     if (parse_bridge_toml_file() < 0) {
         std::cerr << "Failed to parse bridge toml file." << std::endl;
@@ -365,7 +399,7 @@ int main(int argc, char const *argv[])
     printf("Connected broker successfully, loop start....\n MQTT broker:%s:%d, QoS:%d, keepalive:%d \n",
                                             mqtt_host.c_str(), mqtt_port, (int)mqtt_qos, mqtt_keepalive);
     while (1) {
-        publish_tx_data(mosq);
+        mqtt_publish(mosq);
         sleep(5);
     }
 }

@@ -342,7 +342,7 @@ static void publish_chirpstack_format_uplink_json(const json &json_up)
             json_pub["txInfo"]["loRaModulationInfo"]["spreadingFactor"] = dr;
         } else if (rxpk["datr"].is_number_integer()) {
             // FSK datarate (unsigned, in bits per second)
-            json_pub["txInfo"]["loRaModulationInfo"]["FSKDataRate"] = rxpk["datr"];
+            json_pub["txInfo"]["FSKModulationInfo"]["FSKDataRate"] = rxpk["datr"];
         }
         if (rxpk.contains("codr")) {
             json_pub["txInfo"]["loRaModulationInfo"]["codeRate"] = rxpk["codr"];
@@ -486,23 +486,25 @@ static void publish_chirpstack_format_downlink_json(const json &json_downlink)
         json_pub["txInfo"]["loRaModulationInfo"]["spreadingFactor"] = dr;
     } else if (json_downlink["txpk"]["datr"].is_number_integer()) {
         // FSK datarate (unsigned, in bits per second)
-        json_pub["txInfo"]["loRaModulationInfo"]["FSKDataRate"] = json_downlink["txpk"]["datr"];
+        json_pub["txInfo"]["FSKModulationInfo"]["FSKDataRate"] = json_downlink["txpk"]["datr"];
     }
     if (json_downlink["txpk"].contains("fdev")) {
         // FSK frequency deviation (unsigned integer, in Hz)
-        json_pub["txInfo"]["loRaModulationInfo"]["FSKFreqDev"] = json_downlink["txpk"]["dev"];
+        json_pub["txInfo"]["FSKModulationInfo"]["FSKFreqDev"] = json_downlink["txpk"]["fdev"];
+    }
+    if (json_downlink["txpk"].contains("codr")) {
+        json_pub["txInfo"]["loRaModulationInfo"]["codeRate"] = json_downlink["txpk"]["codr"];
     }
 
-    json_pub["txInfo"]["loRaModulationInfo"]["codeRate"] = json_downlink["txpk"]["codr"];
     if (json_downlink["txpk"].contains("ipol")) {
         // Lora modulation polarization inversion
         json_pub["txInfo"]["loRaModulationInfo"]["polarizationInversion"] =
             json_downlink["txpk"]["ipol"];
     }
-    if (json_downlink["imme"].is_boolean()) {
-        bool imme          = json_downlink["txpk"]["imme"];
-        json_pub["timing"] = imme ? "IMMEDIATELY" : "DELAY";
-    }
+    std::cout << "bool type :" << std::endl;
+    bool imme          = json_downlink["txpk"]["imme"];
+    json_pub["timing"] = (imme == true) ? ("IMMEDIATELY") : ("DELAY");
+
     str_txpk = json_pub.dump();
     /* clang-format off */
     mosquitto_publish(mosq, NULL, topic_pub_downlink.c_str(), str_txpk.length(), str_txpk.c_str(), mqtt_qos, false);
@@ -635,8 +637,9 @@ static int recieve_pkt_tx_ack(evutil_socket_t fd)
 
     } catch (const std::exception &e) {
         std::cout << "Tx packet ok." << std::endl;
-        return -1;
+        return 0;
     }
+
     return 0;
 }
 
