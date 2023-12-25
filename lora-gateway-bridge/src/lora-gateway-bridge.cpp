@@ -285,37 +285,7 @@ static int parse_uplink_datr(string datr, uint8_t &dr, uint16_t &bw)
     return 0;
 }
 
-/*
-{
-    "phyPayload": "AAEBAQEBAQEBAQEBAQEBAQGXFgzLPxI=",  // base64 encoded LoRaWAN frame
-    "txInfo": {
-        "frequency": 868300000,
-        "modulation": "LORA",
-        "loRaModulationInfo": {
-            "bandwidth": 125,
-            "spreadingFactor": 11,
-            "codeRate": "4/5",
-            "polarizationInversion": false
-        }
-    },
-    "rxInfo": {
-        "gatewayID": "cnb/AC4GLBg=",
-        "time": "2018-07-26T15:15:58.599497Z",         // only set when the gateway has a GPS time source
-        "timestamp": 58692860,                         // gateway internal timestamp (23 bit)
-        "rssi": -55,
-        "loRaSNR": 15,
-        "channel": 2,
-        "rfChain": 0,
-        "board": 0,
-        "antenna": 0,
-        "fineTimestampType": "ENCRYPTED",
-        "encryptedFineTimestamp": {
-            "aesKeyIndex": 0,
-            "encryptedNS": "d2YFe51PraE3EpnrZJV4aw=="  // encrypted nanosecond part of the time
-        }
-    }
-}
-*/
+
 static void publish_chirpstack_format_uplink_json(const json &json_up)
 {
     string str_rxpk;
@@ -338,14 +308,14 @@ static void publish_chirpstack_format_uplink_json(const json &json_up)
             if (parse_uplink_datr(datr, dr, bw) < 0) {
                 continue;
             }
-            json_pub["txInfo"]["loRaModulationInfo"]["bandwidth"]       = bw;
-            json_pub["txInfo"]["loRaModulationInfo"]["spreadingFactor"] = dr;
+            json_pub["txInfo"]["LoRaModulationInfo"]["bandwidth"]       = bw;
+            json_pub["txInfo"]["LoRaModulationInfo"]["spreadingFactor"] = dr;
         } else if (rxpk["datr"].is_number_integer()) {
             // FSK datarate (unsigned, in bits per second)
             json_pub["txInfo"]["FSKModulationInfo"]["FSKDataRate"] = rxpk["datr"];
         }
         if (rxpk.contains("codr")) {
-            json_pub["txInfo"]["loRaModulationInfo"]["codeRate"] = rxpk["codr"];
+            json_pub["txInfo"]["LoRaModulationInfo"]["codeRate"] = rxpk["codr"];
         }
 
         json_pub["rxInfo"]["gatewayID"] = base_64_obj.encode(string(gateway_eui));
@@ -361,7 +331,7 @@ static void publish_chirpstack_format_uplink_json(const json &json_up)
             json_pub["rxInfo"]["rssis"] = rxpk["rssis"];
         }
         if (rxpk.contains("lsnr")) {
-            json_pub["rxInfo"]["loRaSNR"] = rxpk["lsnr"];
+            json_pub["rxInfo"]["LoRaSNR"] = rxpk["lsnr"];
         }
         json_pub["rxInfo"]["channel"] = rxpk["chan"];
         json_pub["rxInfo"]["rfChain"] = rxpk["rfch"];
@@ -482,8 +452,8 @@ static void publish_chirpstack_format_downlink_json(const json &json_downlink)
         if (parse_uplink_datr(datr, dr, bw) < 0) {
             return;
         }
-        json_pub["txInfo"]["loRaModulationInfo"]["bandwidth"]       = bw;
-        json_pub["txInfo"]["loRaModulationInfo"]["spreadingFactor"] = dr;
+        json_pub["txInfo"]["LoRaModulationInfo"]["bandwidth"]       = bw;
+        json_pub["txInfo"]["LoRaModulationInfo"]["spreadingFactor"] = dr;
     } else if (json_downlink["txpk"]["datr"].is_number_integer()) {
         // FSK datarate (unsigned, in bits per second)
         json_pub["txInfo"]["FSKModulationInfo"]["FSKDataRate"] = json_downlink["txpk"]["datr"];
@@ -493,12 +463,12 @@ static void publish_chirpstack_format_downlink_json(const json &json_downlink)
         json_pub["txInfo"]["FSKModulationInfo"]["FSKFreqDev"] = json_downlink["txpk"]["fdev"];
     }
     if (json_downlink["txpk"].contains("codr")) {
-        json_pub["txInfo"]["loRaModulationInfo"]["codeRate"] = json_downlink["txpk"]["codr"];
+        json_pub["txInfo"]["LoRaModulationInfo"]["codeRate"] = json_downlink["txpk"]["codr"];
     }
 
     if (json_downlink["txpk"].contains("ipol")) {
         // Lora modulation polarization inversion
-        json_pub["txInfo"]["loRaModulationInfo"]["polarizationInversion"] =
+        json_pub["txInfo"]["LoRaModulationInfo"]["polarizationInversion"] =
             json_downlink["txpk"]["ipol"];
     }
     std::cout << "bool type :" << std::endl;
