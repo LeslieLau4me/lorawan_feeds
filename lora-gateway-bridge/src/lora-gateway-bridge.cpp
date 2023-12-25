@@ -331,19 +331,23 @@ static void publish_chirpstack_format_uplink_json(const json &json_up)
             continue;
         }
         json_pub["txInfo"]["modulation"] = rxpk["modu"];
-        string datr                      = rxpk["datr"];
-        if (!datr.empty()) {
+        if (rxpk["datr"].is_string()) {
             uint8_t  dr;
             uint16_t bw;
+            string   datr = rxpk["datr"];
             if (parse_uplink_datr(datr, dr, bw) < 0) {
                 continue;
             }
             json_pub["txInfo"]["loRaModulationInfo"]["bandwidth"]       = bw;
             json_pub["txInfo"]["loRaModulationInfo"]["spreadingFactor"] = dr;
-            json_pub["txInfo"]["loRaModulationInfo"]["codeRate"]        = rxpk["codr"];
-            // push 为 false，pull 为true
-            // json_pub["txInfo"]["loRaModulationInfo"]["polarizationInversion"] = false;
+        } else if (rxpk["datr"].is_number_integer()) {
+            // FSK datarate (unsigned, in bits per second)
+            json_pub["txInfo"]["loRaModulationInfo"]["FSKDataRate"] = rxpk["datr"];
         }
+        if (rxpk.contains("codr")) {
+            json_pub["txInfo"]["loRaModulationInfo"]["codeRate"] = rxpk["codr"];
+        }
+
         json_pub["rxInfo"]["gatewayID"] = base_64_obj.encode(string(gateway_eui));
         if (rxpk.contains("time")) {
             json_pub["rxInfo"]["time"] = rxpk["time"];
@@ -384,6 +388,7 @@ static void publish_chirpstack_format_uplink_json(const json &json_up)
 static void publish_semtech_udp_uplink_json(const json &json_up)
 {
     string str_rxpk = json_up.dump();
+    std::cout << "publish topic:" << topic_pub_rxpk << std::endl;
     mosquitto_publish(
         mosq, NULL, topic_pub_rxpk.c_str(), str_rxpk.length(), str_rxpk.c_str(), mqtt_qos, false);
 }
@@ -455,6 +460,65 @@ static void publish_chirpstack_format_stat_json(const json &json_stat)
     /* clang-format on */
 }
 
+static void publish_chirpstack_format_downlink_json(const json &json_downlink)
+{
+    string str_txpk;
+    json   json_pub;
+    double freq                = 0.0;
+    json_pub["gatewayID"]      = base_64_obj.encode(string(gateway_eui));
+    json_pub["phyPayloadSize"] = json_downlink["txpk"]["size"];
+    json_pub["phyPayload"]     = json_downlink["txpk"]["data"];
+    if (json_downlink["freq"].is_number_float()) {
+        freq                            = json_downlink["txpk"]["freq"];
+        json_pub["txInfo"]["frequency"] = static_cast<uint64_t>(freq * 1000000);
+    }
+    json_pub["txInfo"]["power"]      = json_downlink["txpk"]["powe"];
+    json_pub["txInfo"]["modulation"] = json_downlink["txpk"]["modu"];
+    json_pub["txInfo"]["rfChain"]    = json_downlink["txpk"]["rfch"];
+    if (json_downlink["txpk"]["datr"].is_string()) {
+        uint8_t  dr;
+        uint16_t bw;
+        string   datr = json_downlink["txpk"]["datr"];
+        if (parse_uplink_datr(datr, dr, bw) < 0) {
+            return;
+        }
+        json_pub["txInfo"]["loRaModulationInfo"]["bandwidth"]       = bw;
+        json_pub["txInfo"]["loRaModulationInfo"]["spreadingFactor"] = dr;
+    } else if (json_downlink["txpk"]["datr"].is_number_integer()) {
+        // FSK datarate (unsigned, in bits per second)
+        json_pub["txInfo"]["loRaModulationInfo"]["FSKDataRate"] = json_downlink["txpk"]["datr"];
+    }
+    if (json_downlink["txpk"].contains("fdev")) {
+        // FSK frequency deviation (unsigned integer, in Hz)
+        json_pub["txInfo"]["loRaModulationInfo"]["FSKFreqDev"] = json_downlink["txpk"]["dev"];
+    }
+
+    json_pub["txInfo"]["loRaModulationInfo"]["codeRate"] = json_downlink["txpk"]["codr"];
+    if (json_downlink["txpk"].contains("ipol")) {
+        // Lora modulation polarization inversion
+        json_pub["txInfo"]["loRaModulationInfo"]["polarizationInversion"] =
+            json_downlink["txpk"]["ipol"];
+    }
+    if (json_downlink["imme"].is_boolean()) {
+        bool imme          = json_downlink["txpk"]["imme"];
+        json_pub["timing"] = imme ? "IMMEDIATELY" : "DELAY";
+    }
+    str_txpk = json_pub.dump();
+    /* clang-format off */
+    mosquitto_publish(mosq, NULL, topic_pub_downlink.c_str(), str_txpk.length(), str_txpk.c_str(), mqtt_qos, false);
+    /* clang-format on */
+    std::cout << "publish topic:" << topic_pub_downlink << ":" << json_downlink.dump() << std::endl;
+}
+
+static void publish_semtech_udp_downlink_json(const json &json_downlink)
+{
+    string str_txpk = json_downlink.dump();
+    /* clang-format off */
+    mosquitto_publish(mosq, NULL, topic_pub_downlink.c_str(), str_txpk.length(), str_txpk.c_str(), mqtt_qos, false);
+    /* clang-format on */
+    std::cout << "publish topic:" << topic_pub_downlink << ":" << str_txpk << std::endl;
+}
+
 static void publish_semtech_udp_stat_json(const json &json_stat)
 {
     string str_stat = json_stat.dump();
@@ -498,7 +562,6 @@ static int response_pkt_push_data(evutil_socket_t fd)
     ack[3]          = PKT_PUSH_ACK;
     sendto(fd, ack, sizeof(ack), 0, (struct sockaddr *)&client_addr, client_len);
     uplink_json.clear();
-    /* clang-format off */
     try {
         uplink_json = json::parse(buffer_up + 12);
         if (!topic_pub_gateway_stat.empty()) {
@@ -516,6 +579,28 @@ static int response_pkt_push_data(evutil_socket_t fd)
         return -1;
     }
     return 0;
+}
+
+static void publish_chirpstack_format_downlink_ack_json(const json &json_downlink_ack)
+{
+    string str_txack;
+    json   json_pub;
+    json_pub["gatewayID"]        = base_64_obj.encode(string(gateway_eui));
+    json_pub["gatewayTimeStamp"] = time(nullptr);
+    json_pub["downlinkAck"]      = json_downlink_ack["txpk_ack"];
+    str_txack                    = json_pub.dump();
+    /* clang-format off */
+    mosquitto_publish(mosq, NULL, topic_pub_downlink_ack.c_str(), str_txack.length(), str_txack.c_str(), mqtt_qos, false);
+    std::cout << "publish topic:" << topic_pub_downlink_ack << ":" << str_txack << std::endl;
+    /* clang-format on */
+}
+
+static void publish_semtech_udp_downlink_ack(const json &json_downlink_ack)
+{
+    string str_txack = json_downlink_ack.dump();
+    /* clang-format off */
+    mosquitto_publish(mosq, NULL, topic_pub_downlink_ack.c_str(), str_txack.length(), str_txack.c_str(), mqtt_qos, false);
+    std::cout << "publish topic:" << topic_pub_downlink_ack << ":" << str_txack << std::endl;
 }
 
 /*
@@ -539,15 +624,12 @@ static int recieve_pkt_tx_ack(evutil_socket_t fd)
 {
     /* clang-format on */
     (void)fd;
-    json downlink_json;
+    json txack_json;
     try {
-        downlink_json = json::parse(buffer_up + 12);
+        txack_json = json::parse(buffer_up + 12);
         if (!topic_pub_downlink_ack.empty()) {
-            if (downlink_json.contains("txpk_ack")) {
-                string str_txack = downlink_json.dump();
-                /* clang-format off */
-                mosquitto_publish(mosq, NULL, topic_pub_downlink_ack.c_str(), str_txack.length(), str_txack.c_str(), mqtt_qos, false);
-                std::cout << "publish topic:" << topic_pub_downlink_ack << ":" << str_txack << std::endl;
+            if (txack_json.contains("txpk_ack")) {
+                publish_chirpstack_format_downlink_ack_json(txack_json);
             }
         }
 
@@ -616,9 +698,7 @@ static int response_pkt_pull_data(evutil_socket_t fd)
             downlink_json = json::parse(downlink_msg);
             if (!topic_pub_downlink.empty()) {
                 if (downlink_json.contains("txpk")) {
-                    string str_txpk = downlink_json.dump();
-                    mosquitto_publish(mosq, NULL, topic_pub_downlink.c_str(), str_txpk.length(), str_txpk.c_str(), mqtt_qos, false);
-                    std::cout << "publish topic:" << topic_pub_downlink << ":" << str_txpk << std::endl;
+                    publish_chirpstack_format_downlink_json(downlink_json);
                 }
             }
             /* clang-format on */
