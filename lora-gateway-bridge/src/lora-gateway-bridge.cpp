@@ -610,7 +610,6 @@ static int recieve_pkt_tx_ack(evutil_socket_t fd)
 
     } catch (const std::exception &e) {
         std::cout << "Tx packet ok." << std::endl;
-        return 0;
     }
 
     return 0;
