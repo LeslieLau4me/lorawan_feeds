@@ -285,12 +285,13 @@ static int parse_uplink_datr(string datr, uint8_t &dr, uint16_t &bw)
     return 0;
 }
 
-
 static void publish_chirpstack_format_uplink_json(const json &json_up)
 {
     string str_rxpk;
     double freq = 0.0;
     json   json_pub;
+
+    const char *stat_tb[] = { "STAT_CRC_BAD", "STAT_NO_CRC", "STAT_CRC_OK" };
     for (const auto &rxpk : json_up["rxpk"]) {
         json_pub["phyPayloadSize"] = rxpk["size"];
         json_pub["phyPayload"]     = rxpk["data"];
@@ -343,8 +344,10 @@ static void publish_chirpstack_format_uplink_json(const json &json_up)
             json_pub["rxInfo"]["board"] = rxpk["mid"];
         }
         if (rxpk.contains("stat")) {
+            auto stat = -1;
             // Concentrator modem ID on which pkt has been received
-            json_pub["rxInfo"]["CRCStatus"] = rxpk["stat"];
+            stat                            = rxpk["stat"];
+            json_pub["rxInfo"]["CRCStatus"] = string(stat_tb[stat + 1]);
         }
         str_rxpk.clear();
         str_rxpk = json_pub.dump();
