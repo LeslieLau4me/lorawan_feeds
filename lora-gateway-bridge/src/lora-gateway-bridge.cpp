@@ -341,7 +341,7 @@ static void publish_chirpstack_format_uplink_json(const json &json_up)
         }
         if (rxpk.contains("mid")) {
             // Concentrator modem ID on which pkt has been received
-            json_pub["rxInfo"]["board"] = rxpk["mid"];
+            json_pub["rxInfo"]["ModemID"] = rxpk["mid"];
         }
         if (rxpk.contains("stat")) {
             auto stat = -1;
