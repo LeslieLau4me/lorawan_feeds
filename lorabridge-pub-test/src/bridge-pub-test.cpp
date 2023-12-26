@@ -295,6 +295,52 @@ void publish_fsk_tx_data(struct mosquitto *mosq)
 	}
 }
 
+void publish_muti_tx_data(struct mosquitto *mosq)
+{
+	int rc = -1;
+    json jsonObj;
+
+    jsonObj["gatewayID"] = "YWMyMzNmZmZmZWNmZTNiNQ==";
+
+    json downlinkItems;
+
+    json item1;
+    item1["modulation"] = "LORA";
+    item1["phyPayload"] = "IHN792Ld0vEHetyVv9+llJnnmz88Up6pFz8UiUdJMnUc";
+    item1["phyPayloadSize"] = 32;
+    item1["txInfo"]["frequency"] = 925000000;
+    item1["txInfo"]["power"] = 14;
+    item1["txInfo"]["timing"] = "IMMEDIATELY";
+    item1["txInfo"]["modulationInfo"]["bandwidth"] = 125;
+    item1["txInfo"]["modulationInfo"]["spreadingFactor"] = 10;
+    item1["txInfo"]["modulationInfo"]["codeRate"] = "4/5";
+    item1["txInfo"]["modulationInfo"]["polarizationInversion"] = false;
+
+
+
+    // json item2;
+    // item2["phyPayload"] = "IHN792Ld0vEHetyVv9+llJnnmz88Up6pFz8UiUdJMnUc";
+    // item2["phyPayloadSize"] = 32;
+    // item2["txInfo"]["frequency"] = 925000000;
+    // item2["txInfo"]["power"] = 14;
+    // item1["txInfo"]["FSKModulationInfo"]["rfChain"] = 1;
+    // item2["txInfo"]["FSKModulationInfo"]["FSKDataRate"] = 50000;
+    // item2["txInfo"]["FSKModulationInfo"]["FSKFreqDev"] = 3000;
+    // item2["modulation"] = "FSK";
+    // item2["txInfo"]["timing"] = "IMMEDIATELY";
+
+    downlinkItems.push_back(item1);
+    // downlinkItems.push_back(item2);
+
+    jsonObj["downlinkItems"] = downlinkItems;
+    string tx_string = jsonObj.dump(4);
+    std::cout << "origin t json is :" << tx_string << std::endl;
+	rc = mosquitto_publish(mosq, NULL, topic_sub_txpk.c_str(), tx_string.length(), tx_string.c_str(), 0, false);
+	if(rc != MOSQ_ERR_SUCCESS){
+		fprintf(stderr, "Error publishing: %s\n", mosquitto_strerror(rc));
+	}
+}
+
 static int parse_bridge_toml_file(void)
 {
     BridgeToml toml;
@@ -309,7 +355,6 @@ static int parse_bridge_toml_file(void)
 
 int main(int argc, char const *argv[])
 {
-    bool lora_mode;
     publish_data mqtt_publish;
     if (argc < 3) {
         std::cerr << "Format:" << argv[0] << " " << "{{feq}} e.g:" << argv[0] << " 923.123456" << " LoRa(FSK)" << std::endl;
@@ -328,11 +373,11 @@ int main(int argc, char const *argv[])
             return -1;
         }
         if (string(argv[2]) == "FSK") {
-            lora_mode = false;
             mqtt_publish = publish_fsk_tx_data;
         } else if (string(argv[2]) == "LoRa") {
-            lora_mode = true;
             mqtt_publish = publish_lora_tx_data;
+        } else if (string(argv[2]) == "muti")  {
+            mqtt_publish = publish_muti_tx_data;
         } else {
             printf("Error Modulation..\n");
             return -1;

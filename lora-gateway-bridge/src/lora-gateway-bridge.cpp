@@ -301,7 +301,7 @@ static void publish_chirpstack_format_uplink_json(const json &json_up)
         } else {
             continue;
         }
-        json_pub["txInfo"]["modulation"] = rxpk["modu"];
+        json_pub["modulation"] = rxpk["modu"];
         if (rxpk["datr"].is_string()) {
             uint8_t  dr;
             uint16_t bw;
@@ -309,14 +309,14 @@ static void publish_chirpstack_format_uplink_json(const json &json_up)
             if (parse_uplink_datr(datr, dr, bw) < 0) {
                 continue;
             }
-            json_pub["txInfo"]["LoRaModulationInfo"]["bandwidth"]       = bw;
-            json_pub["txInfo"]["LoRaModulationInfo"]["spreadingFactor"] = dr;
+            json_pub["txInfo"]["modulationInfo"]["bandwidth"]       = bw;
+            json_pub["txInfo"]["modulationInfo"]["spreadingFactor"] = dr;
         } else if (rxpk["datr"].is_number_integer()) {
             // FSK datarate (unsigned, in bits per second)
-            json_pub["txInfo"]["FSKModulationInfo"]["FSKDataRate"] = rxpk["datr"];
+            json_pub["txInfo"]["modulationInfo"]["FSKDataRate"] = rxpk["datr"];
         }
         if (rxpk.contains("codr")) {
-            json_pub["txInfo"]["LoRaModulationInfo"]["codeRate"] = rxpk["codr"];
+            json_pub["txInfo"]["modulationInfo"]["codeRate"] = rxpk["codr"];
         }
 
         json_pub["rxInfo"]["gatewayID"] = base_64_obj.encode(string(gateway_eui));
@@ -446,8 +446,8 @@ static void publish_chirpstack_format_downlink_json(const json &json_downlink)
         json_pub["txInfo"]["frequency"] = static_cast<uint64_t>(freq * 1000000);
     }
     json_pub["txInfo"]["power"]      = json_downlink["txpk"]["powe"];
-    json_pub["txInfo"]["modulation"] = json_downlink["txpk"]["modu"];
-    json_pub["txInfo"]["rfChain"]    = json_downlink["txpk"]["rfch"];
+    json_pub["modulation"] = json_downlink["txpk"]["modu"];
+    // json_pub["txInfo"]["rfChain"]    = json_downlink["txpk"]["rfch"];
     if (json_downlink["txpk"]["datr"].is_string()) {
         uint8_t  dr;
         uint16_t bw;
@@ -455,28 +455,29 @@ static void publish_chirpstack_format_downlink_json(const json &json_downlink)
         if (parse_uplink_datr(datr, dr, bw) < 0) {
             return;
         }
-        json_pub["txInfo"]["LoRaModulationInfo"]["bandwidth"]       = bw;
-        json_pub["txInfo"]["LoRaModulationInfo"]["spreadingFactor"] = dr;
-    } else if (json_downlink["txpk"]["datr"].is_number_integer()) {
+        json_pub["txInfo"]["modulationInfo"]["bandwidth"]       = bw;
+        json_pub["txInfo"]["modulationInfo"]["spreadingFactor"] = dr;
+    } else if (json_downlink["txpk"]["datr"].is_number()) {
         // FSK datarate (unsigned, in bits per second)
-        json_pub["txInfo"]["FSKModulationInfo"]["FSKDataRate"] = json_downlink["txpk"]["datr"];
+        json_pub["txInfo"]["modulationInfo"]["FSKDataRate"] = json_downlink["txpk"]["datr"];
     }
     if (json_downlink["txpk"].contains("fdev")) {
         // FSK frequency deviation (unsigned integer, in Hz)
-        json_pub["txInfo"]["FSKModulationInfo"]["FSKFreqDev"] = json_downlink["txpk"]["fdev"];
+        json_pub["txInfo"]["modulationInfo"]["FSKFreqDev"] = json_downlink["txpk"]["fdev"];
     }
     if (json_downlink["txpk"].contains("codr")) {
-        json_pub["txInfo"]["LoRaModulationInfo"]["codeRate"] = json_downlink["txpk"]["codr"];
+        json_pub["txInfo"]["modulationInfo"]["codeRate"] = json_downlink["txpk"]["codr"];
     }
 
     if (json_downlink["txpk"].contains("ipol")) {
         // Lora modulation polarization inversion
-        json_pub["txInfo"]["LoRaModulationInfo"]["polarizationInversion"] =
+        json_pub["txInfo"]["modulationInfo"]["polarizationInversion"] =
             json_downlink["txpk"]["ipol"];
     }
-    std::cout << "bool type :" << std::endl;
-    bool imme          = json_downlink["txpk"]["imme"];
-    json_pub["timing"] = (imme == true) ? ("IMMEDIATELY") : ("DELAY");
+    if (json_downlink["txpk"]["imme"].is_boolean()) {
+        bool imme          = json_downlink["txpk"]["imme"];
+        json_pub["timing"] = (imme == true) ? ("IMMEDIATELY") : ("DELAY");
+    }
 
     str_txpk = json_pub.dump();
     /* clang-format off */
@@ -719,14 +720,83 @@ static void bufferevent_read_cb(struct bufferevent *bev, void *ctx)
     }
 }
 
+static void parse_remote_downlink_items_json(const json &json_dl)
+{
+    string base64_gwid = json_dl["gatewayID"];
+    if (base_64_obj.encode(string(gateway_eui)) != base64_gwid) {
+        std::cout << "Gateway ID  is not correct." << std::endl;
+        return;
+    }
+    json     json_udp;
+    string   modu;
+    float    freq;
+    uint32_t bw, sf;
+    string str_udp;
+    try {
+        for (auto &txpk : json_dl["downlinkItems"]) {
+             std::cout << "txpk is : " << txpk.dump(4) << endl;
+            json_udp.clear();
+            json_udp["txpk"]["data"] = txpk["phyPayload"];
+            json_udp["txpk"]["size"] = txpk["phyPayloadSize"];
+            //  CLASS A or CLASS C
+            string timing = txpk["txInfo"]["timing"];
+            json_udp["txpk"]["imme"] = (timing == "IMMEDIATELY") ? true : false;
+            json_udp["txpk"]["powe"] = txpk["txInfo"]["power"];
+            freq             = txpk["txInfo"]["frequency"];
+            json_udp["txpk"]["freq"] = static_cast<float>(freq) / 1000000.0f;
+            modu             = txpk["modulation"];
+            json_udp["txpk"]["modu"] = modu;
+            if (modu == "LORA") {
+                json_udp["txpk"]["rfch"] = 0;
+                bw               = txpk["txInfo"]["modulationInfo"]["bandwidth"];
+                sf               = txpk["txInfo"]["modulationInfo"]["spreadingFactor"];
+                string datr      = "SF" + to_string(sf) + "BW" + to_string(bw);
+                json_udp["txpk"]["datr"] = datr;
+                json_udp["txpk"]["codr"] = txpk["txInfo"]["modulationInfo"]["codeRate"];
+                json_udp["txpk"]["ipol"] = txpk["txInfo"]["modulationInfo"]["polarizationInversion"];
+            } else if (modu == "FSK") {
+                 //只能是0
+                json_udp["txpk"]["rfch"] = 0;
+                // json_udp["txpk"]["rfch"] = txpk["txInfo"]["modulationInfo"]["rfChain"];
+                json_udp["txpk"]["datr"] = txpk["txInfo"]["modulationInfo"]["FSKDataRate"];
+                json_udp["txpk"]["fdev"] = txpk["txInfo"]["modulationInfo"]["FSKFreqDev"];
+            } else {
+                std ::cout << "ERROR modulation." << std::endl;
+                return;
+            }
+            str_udp.clear();
+            str_udp = json_udp.dump();
+            cout << "downlink udp: " << str_udp << endl;
+            pthread_mutex_lock(&queue_downlink_mutex);
+            queue_downlink.push(str_udp);
+            pthread_mutex_unlock(&queue_downlink_mutex);
+        }
+    } catch (const std::exception &e) {
+        std::cerr << "Error: Failed to parse downlink json" << e.what() << '\n';
+    }
+    return;
+}
+
 static void
 on_message(struct mosquitto *mosq, void *userdata, const struct mosquitto_message *message)
 {
+    json json_downlink;
     std::cout << "Received MQTT message on topic: " << message->topic << std::endl;
     std::string payload(static_cast<const char *>(message->payload), message->payloadlen);
-    pthread_mutex_lock(&queue_downlink_mutex);
-    queue_downlink.push(payload);
-    pthread_mutex_unlock(&queue_downlink_mutex);
+    try {
+        json_downlink = json::parse(payload);
+    } catch (const json::exception &) {
+        std::cout << "Invalid json: " << std::endl;
+        return;
+    }
+    // semtech udp type packet
+    if (json_downlink.contains("txpk")) {
+        pthread_mutex_lock(&queue_downlink_mutex);
+        queue_downlink.push(payload);
+        pthread_mutex_unlock(&queue_downlink_mutex);
+    } else if (json_downlink.contains("downlinkItems")) {
+        parse_remote_downlink_items_json(json_downlink);
+    }
 }
 
 static int parse_bridge_toml_file(void)
