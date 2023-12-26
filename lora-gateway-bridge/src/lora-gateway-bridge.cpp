@@ -662,7 +662,6 @@ static void parse_remote_downlink_items_json(const json &json_dl)
     string str_udp;
     try {
         for (auto &txpk : json_dl["downlinkItems"]) {
-             std::cout << "txpk is : " << txpk.dump(4) << endl;
             json_udp.clear();
             json_udp["txpk"]["data"] = txpk["phyPayload"];
             json_udp["txpk"]["size"] = txpk["phyPayloadSize"];
