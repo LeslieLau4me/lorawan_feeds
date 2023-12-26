@@ -504,30 +504,6 @@ static void publish_semtech_udp_stat_json(const json &json_stat)
     /* clang-format on */
 }
 
-/*
-### 3.2. PUSH_DATA packet ###
-That packet type is used by the gateway mainly to forward the RF packets
-received, and associated metadata, to the server.
-
- Bytes  | Function
-:------:|---------------------------------------------------------------------
- 0      | protocol version = 2
- 1-2    | random token
- 3      | PUSH_DATA identifier 0x00
- 4-11   | Gateway unique identifier (MAC address)
- 12-end | JSON object, starting with {, ending with }
-
- ### 3.3. PUSH_ACK packet ###
-
-That packet type is used by the server to acknowledge immediately all the
-PUSH_DATA packets received.
-
- Bytes  | Function
-:------:|---------------------------------------------------------------------
- 0      | protocol version = 2
- 1-2    | same token as the PUSH_DATA packet to acknowledge
- 3      | PUSH_ACK identifier 0x01
-*/
 static int response_pkt_push_data(evutil_socket_t fd)
 {
     json    uplink_json;
@@ -579,23 +555,6 @@ static void publish_semtech_udp_downlink_ack(const json &json_downlink_ack)
     std::cout << "publish topic:" << topic_pub_downlink_ack << ":" << str_txack << std::endl;
 }
 
-/*
-### 5.5. TX_ACK packet ###
-
-That packet type is used by the gateway to send a feedback to the server
-to inform if a downlink request has been accepted or rejected by the gateway.
-The datagram may optionnaly contain a JSON string to give more details on
-acknoledge. If no JSON is present (empty string), this means than no error
-occured.
-
- Bytes  | Function
-:------:|---------------------------------------------------------------------
- 0      | protocol version = 2
- 1-2    | same token as the PULL_RESP packet to acknowledge
- 3      | TX_ACK identifier 0x05
- 4-11   | Gateway unique identifier (MAC address)
- 12-end | [optional] JSON object, starting with {, ending with }, see section 6
-*/
 static int recieve_pkt_tx_ack(evutil_socket_t fd)
 {
     /* clang-format on */
@@ -616,37 +575,6 @@ static int recieve_pkt_tx_ack(evutil_socket_t fd)
     return 0;
 }
 
-/*
-### 5.2. PULL_DATA packet ###
- Bytes  | Function
-:------:|---------------------------------------------------------------------
- 0      | protocol version = 2
- 1-2    | random token
- 3      | PULL_DATA identifier 0x02
- 4-11   | Gateway unique identifier (MAC address)
-
-### 5.3. PULL_ACK packet ###
-
-That packet type is used by the server to confirm that the network route is
-open and that the server can send PULL_RESP packets at any time.
-
- Bytes  | Function
-:------:|---------------------------------------------------------------------
- 0      | protocol version = 2
- 1-2    | same token as the PULL_DATA packet to acknowledge
- 3      | PULL_ACK identifier 0x04
- ### 5.4. PULL_RESP packet ###
-
-That packet type is used by the server to send RF packets and associated
-metadata that will have to be emitted by the gateway.
-
- Bytes  | Function
-:------:|---------------------------------------------------------------------
- 0      | protocol version = 2
- 1-2    | random token
- 3      | PULL_RESP identifier 0x03
- 4-end  | JSON object, starting with {, ending with }, see section 6
-*/
 static int response_pkt_pull_data(evutil_socket_t fd)
 {
     json downlink_json;
@@ -741,6 +669,14 @@ static void parse_remote_downlink_items_json(const json &json_dl)
             //  CLASS A or CLASS C
             string timing = txpk["txInfo"]["timing"];
             json_udp["txpk"]["imme"] = (timing == "IMMEDIATELY") ? true : false;
+            if (timing == "IMMEDIATELY") {
+                json_udp["txpk"]["imme"] = true;
+            } else {
+                json_udp["txpk"]["imme"] = false;
+                if (txpk.contains("timestamp")) {
+                     json_udp["txpk"]["tmst"] =  txpk["txInfo"]["timestamp"];
+                }
+            }
             json_udp["txpk"]["powe"] = txpk["txInfo"]["power"];
             freq             = txpk["txInfo"]["frequency"];
             json_udp["txpk"]["freq"] = static_cast<float>(freq) / 1000000.0f;
@@ -764,9 +700,17 @@ static void parse_remote_downlink_items_json(const json &json_dl)
                 std ::cout << "ERROR modulation." << std::endl;
                 return;
             }
+            if (txpk["txInfo"].contains("preambleSize")) {
+                json_udp["txpk"]["prea"] = txpk["txInfo"]["preambleSize"];
+            }
+            if (txpk["txInfo"].contains("noCRC")) {
+                json_udp["txpk"]["ncrc"] = txpk["txInfo"]["noCRC"];
+            }
+            if (txpk["txInfo"].contains("noHeader")) {
+                json_udp["txpk"]["nhdr"] = txpk["txInfo"]["noHeader"];
+            }
             str_udp.clear();
             str_udp = json_udp.dump();
-            cout << "downlink udp: " << str_udp << endl;
             pthread_mutex_lock(&queue_downlink_mutex);
             queue_downlink.push(str_udp);
             pthread_mutex_unlock(&queue_downlink_mutex);
