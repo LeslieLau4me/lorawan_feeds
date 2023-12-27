@@ -35,7 +35,6 @@ static string topic_pub_gateway_stat;
 
 static string topic_sub_txpk;
 
-//上下行buffer 和packet forwarder 保持一致
 uint8_t            buffer_up[TX_BUFF_SIZE] = { 0 };
 uint8_t            buffer_down[1000]       = { 0 };
 struct sockaddr_in client_addr;
@@ -55,20 +54,6 @@ map<string, uint16_t> map_bw = {
     { "BW125", 500 },
 };
 
-/*
-存储订阅到的下行数据，即应用服务器发布的消息，节点内容如下：
-{"txpk":{
-"imme":true,
-"freq":861.3,
-"rfch":0,
-"powe":12,
-"modu":"FSK",
-"datr":50000,
-"fdev":3000,
-"size":32,
-"data":"H3P3N2i9qc4yt7rK7ldqoeCVJGBybzPY5h1Dd7P7p8v"
-}}
-*/
 queue<string>   queue_downlink;
 pthread_mutex_t queue_downlink_mutex = PTHREAD_MUTEX_INITIALIZER;
 
