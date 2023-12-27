@@ -293,7 +293,7 @@ static void publish_chirpstack_format_uplink_json(const json &json_up)
 
     const char *stat_tb[] = { "STAT_CRC_BAD", "STAT_NO_CRC", "STAT_CRC_OK" };
     for (const auto &rxpk : json_up["rxpk"]) {
-        json_pub["gatewayID"] = base_64_obj.encode(string(gateway_eui));
+        json_pub["gatewayID"]      = base_64_obj.encode(string(gateway_eui));
         json_pub["phyPayloadSize"] = rxpk["size"];
         json_pub["phyPayload"]     = rxpk["data"];
         if (rxpk["freq"].is_number_float()) {
@@ -679,15 +679,18 @@ static void parse_remote_downlink_items_json(const json &json_dl)
             json_udp["txpk"]["data"] = txpk["phyPayload"];
             json_udp["txpk"]["size"] = txpk["phyPayloadSize"];
             //  CLASS A or CLASS C
-            string timing            = txpk["txInfo"]["timing"];
-            json_udp["txpk"]["imme"] = (timing == "IMMEDIATELY") ? true : false;
+            string timing = txpk["txInfo"]["timing"];
             if (timing == "IMMEDIATELY") {
                 json_udp["txpk"]["imme"] = true;
-            } else {
+            } else if (timing == "DELAY") {
                 json_udp["txpk"]["imme"] = false;
                 if (txpk.contains("timestamp")) {
                     json_udp["txpk"]["tmst"] = txpk["txInfo"]["timestamp"];
                 }
+            } else {
+                string err_msg = "Error: Unrecognized timing type.";
+                std::cout << err_msg << std::endl;
+                publish_remote_downlink_items_exception(err_msg);
             }
             json_udp["txpk"]["powe"] = txpk["txInfo"]["power"];
             freq                     = txpk["txInfo"]["frequency"];
@@ -710,7 +713,9 @@ static void parse_remote_downlink_items_json(const json &json_dl)
                 json_udp["txpk"]["datr"] = txpk["txInfo"]["modulationInfo"]["FSKDataRate"];
                 json_udp["txpk"]["fdev"] = txpk["txInfo"]["modulationInfo"]["FSKFreqDev"];
             } else {
-                std ::cout << "ERROR modulation." << std::endl;
+                string err_msg = "ERROR modulation.";
+                std ::cout << err_msg << std::endl;
+                publish_remote_downlink_items_exception(err_msg);
                 return;
             }
             if (txpk["txInfo"].contains("preambleSize")) {
