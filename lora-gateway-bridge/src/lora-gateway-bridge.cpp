@@ -293,6 +293,7 @@ static void publish_chirpstack_format_uplink_json(const json &json_up)
 
     const char *stat_tb[] = { "STAT_CRC_BAD", "STAT_NO_CRC", "STAT_CRC_OK" };
     for (const auto &rxpk : json_up["rxpk"]) {
+        json_pub["gatewayID"] = base_64_obj.encode(string(gateway_eui));
         json_pub["phyPayloadSize"] = rxpk["size"];
         json_pub["phyPayload"]     = rxpk["data"];
         if (rxpk["freq"].is_number_float()) {
@@ -318,8 +319,6 @@ static void publish_chirpstack_format_uplink_json(const json &json_up)
         if (rxpk.contains("codr")) {
             json_pub["txInfo"]["modulationInfo"]["codeRate"] = rxpk["codr"];
         }
-
-        json_pub["rxInfo"]["gatewayID"] = base_64_obj.encode(string(gateway_eui));
         if (rxpk.contains("time")) {
             json_pub["rxInfo"]["time"] = rxpk["time"];
         }
