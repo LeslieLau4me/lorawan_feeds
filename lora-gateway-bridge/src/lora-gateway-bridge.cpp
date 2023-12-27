@@ -437,14 +437,14 @@ static void publish_chirpstack_format_downlink_json(const json &json_downlink)
 {
     string str_txpk;
     json   json_pub;
-    double freq                = 0.0;
-    json_pub["gatewayID"]      = base_64_obj.encode(string(gateway_eui));
-    json_pub["phyPayloadSize"] = json_downlink["txpk"]["size"];
-    json_pub["phyPayload"]     = json_downlink["txpk"]["data"];
+    double freq                     = 0.0;
+    json_pub["gatewayID"]           = base_64_obj.encode(string(gateway_eui));
+    json_pub["phyPayloadSize"]      = json_downlink["txpk"]["size"];
+    json_pub["phyPayload"]          = json_downlink["txpk"]["data"];
     freq                            = json_downlink["txpk"]["freq"];
     json_pub["txInfo"]["frequency"] = static_cast<uint64_t>(freq * 1000000);
-    json_pub["txInfo"]["power"] = json_downlink["txpk"]["powe"];
-    json_pub["modulation"]      = json_downlink["txpk"]["modu"];
+    json_pub["txInfo"]["power"]     = json_downlink["txpk"]["powe"];
+    json_pub["modulation"]          = json_downlink["txpk"]["modu"];
     // json_pub["txInfo"]["rfChain"]    = json_downlink["txpk"]["rfch"];
     if (json_downlink["txpk"]["datr"].is_string()) {
         uint8_t  dr;
@@ -646,6 +646,20 @@ static void bufferevent_read_cb(struct bufferevent *bev, void *ctx)
     }
 }
 
+static void publish_remote_downlink_items_exception(const string &exception)
+{
+    string str_txack;
+    json   json_pub;
+    json_pub["gatewayID"]         = base_64_obj.encode(string(gateway_eui));
+    json_pub["gatewayTimestamp"]  = time(nullptr);
+    json_pub["downlinkException"] = exception;
+    str_txack                     = json_pub.dump();
+    /* clang-format off */
+    mosquitto_publish(mosq, NULL, topic_pub_downlink_ack.c_str(), str_txack.length(), str_txack.c_str(), mqtt_qos, false);
+    std::cout << "publish topic:" << topic_pub_downlink_ack << ":" << str_txack << std::endl;
+    /* clang-format on */
+}
+
 static void parse_remote_downlink_items_json(const json &json_dl)
 {
     string base64_gwid = json_dl["gatewayID"];
@@ -713,8 +727,8 @@ static void parse_remote_downlink_items_json(const json &json_dl)
             queue_downlink.push(str_udp);
             pthread_mutex_unlock(&queue_downlink_mutex);
         }
-    } catch (const std::exception &e) {
-        std::cerr << "Error: Failed to parse downlink json" << e.what() << '\n';
+    } catch (const nlohmann::json::exception &e) {
+        publish_remote_downlink_items_exception(string(e.what()));
     }
     return;
 }
