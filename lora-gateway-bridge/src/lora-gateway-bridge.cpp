@@ -441,12 +441,10 @@ static void publish_chirpstack_format_downlink_json(const json &json_downlink)
     json_pub["gatewayID"]      = base_64_obj.encode(string(gateway_eui));
     json_pub["phyPayloadSize"] = json_downlink["txpk"]["size"];
     json_pub["phyPayload"]     = json_downlink["txpk"]["data"];
-    if (json_downlink["freq"].is_number_float()) {
-        freq                            = json_downlink["txpk"]["freq"];
-        json_pub["txInfo"]["frequency"] = static_cast<uint64_t>(freq * 1000000);
-    }
-    json_pub["txInfo"]["power"]      = json_downlink["txpk"]["powe"];
-    json_pub["modulation"] = json_downlink["txpk"]["modu"];
+    freq                            = json_downlink["txpk"]["freq"];
+    json_pub["txInfo"]["frequency"] = static_cast<uint64_t>(freq * 1000000);
+    json_pub["txInfo"]["power"] = json_downlink["txpk"]["powe"];
+    json_pub["modulation"]      = json_downlink["txpk"]["modu"];
     // json_pub["txInfo"]["rfChain"]    = json_downlink["txpk"]["rfch"];
     if (json_downlink["txpk"]["datr"].is_string()) {
         uint8_t  dr;
@@ -659,38 +657,39 @@ static void parse_remote_downlink_items_json(const json &json_dl)
     string   modu;
     float    freq;
     uint32_t bw, sf;
-    string str_udp;
+    string   str_udp;
     try {
         for (auto &txpk : json_dl["downlinkItems"]) {
             json_udp.clear();
             json_udp["txpk"]["data"] = txpk["phyPayload"];
             json_udp["txpk"]["size"] = txpk["phyPayloadSize"];
             //  CLASS A or CLASS C
-            string timing = txpk["txInfo"]["timing"];
+            string timing            = txpk["txInfo"]["timing"];
             json_udp["txpk"]["imme"] = (timing == "IMMEDIATELY") ? true : false;
             if (timing == "IMMEDIATELY") {
                 json_udp["txpk"]["imme"] = true;
             } else {
                 json_udp["txpk"]["imme"] = false;
                 if (txpk.contains("timestamp")) {
-                     json_udp["txpk"]["tmst"] =  txpk["txInfo"]["timestamp"];
+                    json_udp["txpk"]["tmst"] = txpk["txInfo"]["timestamp"];
                 }
             }
             json_udp["txpk"]["powe"] = txpk["txInfo"]["power"];
-            freq             = txpk["txInfo"]["frequency"];
+            freq                     = txpk["txInfo"]["frequency"];
             json_udp["txpk"]["freq"] = static_cast<float>(freq) / 1000000.0f;
-            modu             = txpk["modulation"];
+            modu                     = txpk["modulation"];
             json_udp["txpk"]["modu"] = modu;
             if (modu == "LORA") {
                 json_udp["txpk"]["rfch"] = 0;
-                bw               = txpk["txInfo"]["modulationInfo"]["bandwidth"];
-                sf               = txpk["txInfo"]["modulationInfo"]["spreadingFactor"];
-                string datr      = "SF" + to_string(sf) + "BW" + to_string(bw);
+                bw                       = txpk["txInfo"]["modulationInfo"]["bandwidth"];
+                sf                       = txpk["txInfo"]["modulationInfo"]["spreadingFactor"];
+                string datr              = "SF" + to_string(sf) + "BW" + to_string(bw);
                 json_udp["txpk"]["datr"] = datr;
                 json_udp["txpk"]["codr"] = txpk["txInfo"]["modulationInfo"]["codeRate"];
-                json_udp["txpk"]["ipol"] = txpk["txInfo"]["modulationInfo"]["polarizationInversion"];
+                json_udp["txpk"]["ipol"] =
+                    txpk["txInfo"]["modulationInfo"]["polarizationInversion"];
             } else if (modu == "FSK") {
-                 //只能是0
+                //只能是0
                 json_udp["txpk"]["rfch"] = 0;
                 // json_udp["txpk"]["rfch"] = txpk["txInfo"]["modulationInfo"]["rfChain"];
                 json_udp["txpk"]["datr"] = txpk["txInfo"]["modulationInfo"]["FSKDataRate"];

@@ -308,7 +308,7 @@ void publish_muti_tx_data(struct mosquitto *mosq)
     item1["modulation"] = "LORA";
     item1["phyPayload"] = "IHN792Ld0vEHetyVv9+llJnnmz88Up6pFz8UiUdJMnUc";
     item1["phyPayloadSize"] = 32;
-    item1["txInfo"]["frequency"] = 925000000;
+    item1["txInfo"]["frequency"] = static_cast<uint64_t>(tx_freq * 1000000);
     item1["txInfo"]["power"] = 14;
     item1["txInfo"]["timing"] = "IMMEDIATELY";
     item1["txInfo"]["modulationInfo"]["bandwidth"] = 125;
@@ -318,16 +318,16 @@ void publish_muti_tx_data(struct mosquitto *mosq)
 
 
 
-    // json item2;
-    // item2["phyPayload"] = "IHN792Ld0vEHetyVv9+llJnnmz88Up6pFz8UiUdJMnUc";
-    // item2["phyPayloadSize"] = 32;
-    // item2["txInfo"]["frequency"] = 925000000;
-    // item2["txInfo"]["power"] = 14;
-    // item1["txInfo"]["FSKModulationInfo"]["rfChain"] = 1;
-    // item2["txInfo"]["FSKModulationInfo"]["FSKDataRate"] = 50000;
-    // item2["txInfo"]["FSKModulationInfo"]["FSKFreqDev"] = 3000;
-    // item2["modulation"] = "FSK";
-    // item2["txInfo"]["timing"] = "IMMEDIATELY";
+    json item2;
+    item2["phyPayload"] = "IHN792Ld0vEHetyVv9+llJnnmz88Up6pFz8UiUdJMnUc";
+    item2["phyPayloadSize"] = 32;
+    item2["txInfo"]["frequency"] = static_cast<uint64_t>(tx_freq * 1000000);
+    item2["txInfo"]["power"] = 14;
+    item1["txInfo"]["FSKModulationInfo"]["rfChain"] = 1;
+    item2["txInfo"]["FSKModulationInfo"]["FSKDataRate"] = 50000;
+    item2["txInfo"]["FSKModulationInfo"]["FSKFreqDev"] = 3000;
+    item2["modulation"] = "FSK";
+    item2["txInfo"]["timing"] = "IMMEDIATELY";
 
     downlinkItems.push_back(item1);
     // downlinkItems.push_back(item2);
