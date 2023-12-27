@@ -664,7 +664,9 @@ static void parse_remote_downlink_items_json(const json &json_dl)
 {
     string base64_gwid = json_dl["gatewayID"];
     if (base_64_obj.encode(string(gateway_eui)) != base64_gwid) {
-        std::cout << "Gateway ID  is not correct." << std::endl;
+        string err_msg = "Gateway ID  is not correct.";
+        std::cout << err_msg << std::endl;
+        publish_remote_downlink_items_exception(err_msg);
         return;
     }
     json     json_udp;
