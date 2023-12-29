@@ -671,6 +671,10 @@ static void parse_remote_downlink_items_json(const json &json_dl)
                 json_udp["txpk"]["imme"] = false;
                 if (txpk.contains("timestamp")) {
                     json_udp["txpk"]["tmst"] = txpk["txInfo"]["timestamp"];
+                } else {
+                    string err_msg = "Missing timestamp field.";
+                    std::cout << err_msg << std::endl;
+                    publish_remote_downlink_items_exception(err_msg);
                 }
             } else {
                 string err_msg = "Error: Unrecognized timing type.";
