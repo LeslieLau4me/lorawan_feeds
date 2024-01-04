@@ -22,8 +22,6 @@ static string  client_id;
 static uint8_t mqtt_qos;
 static bool    mqtt_clean_session;
 
-static bool has_connected = false;
-
 /* Topic for publish*/
 
 static string topic_pub_rxpk;
@@ -992,7 +990,6 @@ int main(void)
     std::cout << "Downlink tx ack topic:" << topic_pub_downlink_ack << std::endl;
     std::cout << "Gateway statistics topic:" << topic_pub_gateway_stat << std::endl;
     std::cout << "Tx topic receiving tx packet:" << topic_sub_txpk << std::endl;
-    has_connected = true;
 
     pthread_t mqtt_tid;
     pthread_create(&mqtt_tid, NULL, mqtt_message_thread, NULL);
