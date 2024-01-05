@@ -300,7 +300,7 @@ void publish_muti_tx_data(struct mosquitto *mosq)
 	int rc = -1;
     json jsonObj;
 
-    jsonObj["gatewayID"] = "YWMyMzNmZmZmZWNmZTNiNQ==";
+    jsonObj["gatewayID"] = "0000000000000000";
 
     json downlinkItems;
 
