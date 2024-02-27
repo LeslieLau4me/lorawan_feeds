@@ -65,7 +65,7 @@ check_chip_id() {
         return 1
     else
         #默认高电平
-        # echo 1 > /sys/class/leds/led_lora/brightness
+        echo 1 > /sys/class/leds/led_lora/brightness
         return 0
     fi
 }
