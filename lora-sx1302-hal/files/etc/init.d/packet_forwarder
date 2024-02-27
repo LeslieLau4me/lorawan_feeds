@@ -57,17 +57,7 @@ check_chip_id() {
     cd /usr/bin
     # 执行 chip_id 命令并读取输出
     output=$(./chip_id -d /dev/$spi_device)
-
-    # 检查输出中是否包含 "ERROR" 字符串,有则说明spi通信不上
-    if [[ $output == *"ERROR"* ]]; then
-        echo "Failed to start spidev."
-        echo 0 > /sys/class/leds/led_lora/brightness
-        return 1
-    else
-        #默认高电平
-        echo 1 > /sys/class/leds/led_lora/brightness
-        return 0
-    fi
+    # echo $output
 }
 
 start_service() {
