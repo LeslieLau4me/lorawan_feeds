@@ -50,6 +50,26 @@ check_wlan0() {
   return 1
 }
 
+check_chip_id() {
+    # 获取 /sys/class/spidev/ 目录下的 spi 设备列表,取第一个
+    spi_device=$(ls /sys/class/spidev/ | awk '{print $1;}')
+
+    cd /usr/bin
+    # 执行 chip_id 命令并读取输出
+    output=$(./chip_id -d /dev/$spi_device)
+
+    # 检查输出中是否包含 "ERROR" 字符串,有则说明spi通信不上
+    if [[ $output == *"ERROR"* ]]; then
+        echo "Failed to start spidev."
+        echo 0 > /sys/class/leds/led_lora/brightness
+        return 1
+    else
+        #默认高电平
+        # echo 1 > /sys/class/leds/led_lora/brightness
+        return 0
+    fi
+}
+
 start_service() {
     load_lora_mode
     if [ "$wm" = "PKFD" ] || [ "$wm" = "BRDG" ]; then
@@ -85,6 +105,10 @@ start_service() {
             procd_set_param stdout 1 # forward stdout of the command to logd
             procd_set_param stderr 1 # same for stderr
             procd_close_instance
+
+    # 第一次出厂没有配置的时候，检测LoRa模块是否安装
+    elif [ "$wm" = "unknown" ];then
+        check_chip_id
     fi
 
 }
