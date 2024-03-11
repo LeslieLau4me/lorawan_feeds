@@ -63,14 +63,21 @@ define Package/basicstation/install
 	$(INSTALL_DIR) $(1)/etc/basicstation
 	#$(INSTALL_BIN) ./files/etc/basicstation/reset_lgw.sh $(1)/etc/basicstation/
 	$(INSTALL_BIN) ./files/etc/basicstation/tc.trust $(1)/etc/basicstation/
+	# those are same
+	$(INSTALL_BIN) ./files/etc/basicstation/tc.trust $(1)/etc/basicstation/cups.trust
 	$(INSTALL_DATA) ./files/etc/config/station.conf $(1)/etc/basicstation/
 
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) ./files/usr/bin/rinit.sh $(1)/usr/bin
 
+	$(INSTALL_DIR) $(1)/etc/ssl/gw/tc_trust
+	$(INSTALL_BIN) ./files/etc/basicstation/tc.trust $(1)/etc/ssl/gw/tc_trust
+
+	$(INSTALL_DIR) $(1)/etc/ssl/gw/cups_boot_trust
+	$(INSTALL_BIN) ./files/etc/basicstation/tc.trust $(1)/etc/ssl/gw/cups_boot_trust/cups.trust
+
 	#chmod +x $(1)/etc/basicstation/reset_lgw.sh
 	chmod +x $(1)/usr/bin/rinit.sh
-	mkdir -p $(1)/etc/ssl/gw/tc_trust
 endef
 
 $(eval $(call BuildPackage,basicstation))
