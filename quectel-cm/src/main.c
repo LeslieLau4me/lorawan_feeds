@@ -21,6 +21,7 @@
 #include <dirent.h>
 
 #include "util.h"
+#include "atchannel.h"
 //#define CONFIG_PID_FILE_FORMAT "/var/run/quectel-CM-%s.pid" //for example /var/run/quectel-CM-wwan0.pid
 
 static PROFILE_T s_profile;
@@ -51,6 +52,16 @@ static void usbnet_link_change(int link, PROFILE_T *profile) {
     } else {
         udhcpc_stop(profile);
     }
+}
+
+
+static void deactivate_pdp(PROFILE_T *profile)
+{
+    char *shell_cmd = NULL;
+    asprintf(&shell_cmd, "AT+QNETDEVCTL=0,%d,%d", profile->pdp, 1);
+    at_send_command(shell_cmd, NULL);
+    if(shell_cmd)
+    	free(shell_cmd);
 }
 
 static int check_ipv4_address(PROFILE_T *profile) {
@@ -654,6 +665,7 @@ static int qmi_main(PROFILE_T *profile)
     }
 
 __main_quit:
+    deactivate_pdp(profile);
     usbnet_link_change(0, profile);
     if (gQmiThreadID && pthread_join(gQmiThreadID, NULL)) {
         dbg_time("%s Error joining to listener thread (%s)", __func__, strerror(errno));
