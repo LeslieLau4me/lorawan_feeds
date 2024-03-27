@@ -28,6 +28,7 @@ define Package/sx1302_hal_wrt
   SUBMENU:=LoRaWAN
   TITLE:=SX1302/SX1303 HAL
   DEPENDS:=+kmod-spi-dev +liburcu
+  MENU:=1
 endef
 
 define Package/sx1302_hal_wrt/description

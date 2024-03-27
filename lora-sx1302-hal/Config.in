@@ -1,5 +1,4 @@
-config LORAWAN_FREQ_PLAN
-    default y
+if PACKAGE_sx1302_hal_wrt
 
 choice
     prompt "LoRaWAN Freq Plan selection"
@@ -20,3 +19,5 @@ choice
         help
             Select this option for CN490 configuration.
 endchoice
+
+endif
