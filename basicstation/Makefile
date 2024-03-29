@@ -23,7 +23,7 @@ PKG_MAINTAINER:=Marcus Schref <mschref@tdt.de>
 PKG_LICENSE:=BSD-3-Clause
 PKG_LICENSE_FILES:=LICENSE
 
-PKG_BUILD_DEPENDS:=lora-sx1302-hal mbedtls
+PKG_BUILD_DEPENDS:=lora-sx1302-hal 
 
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/cmake.mk
@@ -33,7 +33,7 @@ define Package/basicstation
   CATEGORY:=Network
   SUBMENU:=LoRaWAN
   TITLE:=LoRa Basic Station
-  DEPENDS:=+kmod-spi-dev +liburcu
+  DEPENDS:=+kmod-spi-dev +liburcu +libmbedtls
 endef
 
 define Package/basicstation/description
