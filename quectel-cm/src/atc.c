@@ -9,60 +9,82 @@
   None.
 
   ---------------------------------------------------------------------------
-  Copyright (c) 2016 - 2020 Quectel Wireless Solution, Co., Ltd.  All Rights Reserved.
+  Copyright (c) 2016 - 2023 Quectel Wireless Solution, Co., Ltd.  All Rights Reserved.
   Quectel Wireless Solution Proprietary and Confidential.
   ---------------------------------------------------------------------------
 ******************************************************************************/
-#include <unistd.h>
+#include <ctype.h>
+#include <endian.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <getopt.h>
+#include <inttypes.h>
+#include <limits.h>
+#include <poll.h>
+#include <pthread.h>
+#include <signal.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
-#include <fcntl.h>
-#include <stddef.h>
-#include <pthread.h>
-#include <errno.h>
-#include <time.h>
-#include <signal.h>
-#include <getopt.h>
-#include <poll.h>
 #include <sys/time.h>
-#include <endian.h>
-#include <time.h>
 #include <sys/types.h>
-#include <limits.h>
-#include <inttypes.h>
+#include <time.h>
+#include <unistd.h>
 
 extern int asprintf(char **s, const char *fmt, ...);
 
 #include "QMIThread.h"
 
-#include "atchannel.h"
 #include "at_tok.h"
+#include "atchannel.h"
 
+typedef enum STYLE_ATC { UNKNOWN = 0, EG800Q = 1, EG800G = 2 } STYLE_ATC;
+static int style_atc     = UNKNOWN;
 static int asr_style_atc = 0;
 static int s_pdp;
-#define safe_free(__x) do { if (__x) { free((void *)__x); __x = NULL;}} while(0)
-#define safe_at_response_free(__x) { if (__x) { at_response_free(__x); __x = NULL;}}
+#define safe_free(__x)         \
+    do {                       \
+        if (__x) {             \
+            free((void *)__x); \
+            __x = NULL;        \
+        }                      \
+    } while (0)
+#define safe_at_response_free(__x) \
+    {                              \
+        if (__x) {                 \
+            at_response_free(__x); \
+            __x = NULL;            \
+        }                          \
+    }
+
+int check_mcu_endian()
+{
+    union {
+        int  a;
+        char b;
+    } u;
+
+    u.a = 1;
+    return u.b;
+}
 
 #define at_response_error(err, p_response) \
-    (err \
-    || p_response == NULL \
-    || p_response->finalResponse == NULL \
-    || p_response->success == 0)
+    (err || p_response == NULL || p_response->finalResponse == NULL || p_response->success == 0)
 
-static int atc_init(PROFILE_T *profile) {
-    int err;
-    char *cmd;
+static int atc_init(PROFILE_T *profile)
+{
+    int         err;
+    char       *cmd;
     ATResponse *p_response = NULL;
 
-    if (profile->proxy[0])  {
+    if (profile->proxy[0]) {
         s_pdp = profile->pdp;
-        err = at_send_command_singleline("AT+QNETDEVSTATUS=?", "+QNETDEVSTATUS:", &p_response);
+        err   = at_send_command_singleline("AT+QNETDEVSTATUS=?", "+QNETDEVSTATUS:", &p_response);
         if (at_response_error(err, p_response))
             asr_style_atc = 1; //EC200T/EC100Y do not support this AT, but RG801/RG500U support
         safe_at_response_free(p_response);
-		
+
         return err;
     }
 
@@ -71,17 +93,19 @@ static int atc_init(PROFILE_T *profile) {
         dbg_time("handshake fail, TODO ... ");
         goto exit;
     }
-	
+
     s_pdp = profile->pdp;
     at_send_command_singleline("AT+QCFG=\"usbnet\"", "+QCFG:", NULL);
     at_send_command_multiline("AT+QNETDEVCTL=?", "+QNETDEVCTL:", NULL);
-    at_send_command("AT+CGREG=2", NULL); //GPRS Network Registration Status
-    at_send_command("AT+CEREG=2", NULL); //EPS Network Registration Status
+    at_send_command("AT+CGREG=2", NULL);  //GPRS Network Registration Status
+    at_send_command("AT+CEREG=2", NULL);  //EPS Network Registration Status
     at_send_command("AT+C5GREG=2", NULL); //5GS Network Registration Status
 
     err = at_send_command_singleline("AT+QNETDEVSTATUS=?", "+QNETDEVSTATUS:", &p_response);
-    if (at_response_error(err, p_response))
-        asr_style_atc = 1; //EC200T/EC100Y do not support this AT, but RG801/RG500U support 
+    if (at_response_error(err, p_response)) {
+        asr_style_atc = 1; //EC200T/EC100Y do not support this AT, but RG801/RG500U support
+        dbg_time("ASR style ... ");
+    }
     safe_at_response_free(p_response);
 
     err = at_send_command_singleline("AT+QCFG=\"NAT\"", "+QCFG:", &p_response);
@@ -95,7 +119,7 @@ static int atc_init(PROFILE_T *profile) {
             err = at_send_command(cmd, &p_response);
             safe_free(cmd);
             if (!at_response_error(err, p_response)) {
-                err = at_send_command("at+cfun=1,1",NULL);
+                err = at_send_command("at+cfun=1,1", NULL);
                 if (!err)
                     g_donot_exit_when_modem_hangup = 1;
                 //reboot to take effect
@@ -110,7 +134,8 @@ exit:
     return err;
 }
 
-static int atc_deinit(void) {
+static int atc_deinit(void)
+{
     return 0;
 }
 
@@ -119,34 +144,35 @@ static int atc_deinit(void) {
  * This is called on atchannel's reader thread. AT commands may
  * not be issued here
  */
-static void onUnsolicited (const char *s, const char *sms_pdu)
+static void onUnsolicited(const char *s, const char *sms_pdu)
 {
     (void)sms_pdu;
 
     if (strStartsWith(s, "+QNETDEVSTATUS:")) {
         qmidevice_send_event_to_main(RIL_UNSOL_DATA_CALL_LIST_CHANGED);
-    }
-    else if (strStartsWith(s, "+CGREG:")
-        || strStartsWith(s, "+CEREG:")
-        || strStartsWith(s, "+C5GREG:")) {
+    } else if (strStartsWith(s, "+CGREG:") || strStartsWith(s, "+CEREG:") ||
+               strStartsWith(s, "+C5GREG:")) {
         qmidevice_send_event_to_main(RIL_UNSOL_RESPONSE_VOICE_NETWORK_STATE_CHANGED);
     }
 }
 
-static void onTimeout(void) {
+static void onTimeout(void)
+{
     dbg_time("%s", __func__);
     //TODO
 }
 
-static void onClose(void) {
+static void onClose(void)
+{
     dbg_time("%s", __func__);
 }
 
-static void * atc_read_thread(void *param) {
-    PROFILE_T *profile = (PROFILE_T *)param;
-    const char *cdc_wdm = (const char *)profile->qmichannel;
-    int wait_for_request_quit = 0;
-    int atc_fd;
+static void *atc_read_thread(void *param)
+{
+    PROFILE_T  *profile               = (PROFILE_T *)param;
+    const char *cdc_wdm               = (const char *)profile->qmichannel;
+    int         wait_for_request_quit = 0;
+    int         atc_fd;
 
     atc_fd = cm_open_dev(cdc_wdm);
     if (atc_fd <= 0) {
@@ -164,8 +190,8 @@ static void * atc_read_thread(void *param) {
     qmidevice_send_event_to_main(RIL_INDICATE_DEVICE_CONNECTED);
 
     while (atc_fd > 0) {
-        struct pollfd pollfds[] = {{atc_fd, POLLIN, 0}, {qmidevice_control_fd[1], POLLIN, 0}};
-        int ne, ret, nevents = 2;
+        struct pollfd pollfds[] = { { atc_fd, POLLIN, 0 }, { qmidevice_control_fd[1], POLLIN, 0 } };
+        int           ne, ret, nevents = 2;
 
         ret = poll(pollfds, nevents, wait_for_request_quit ? 1000 : -1);
 
@@ -179,35 +205,34 @@ static void * atc_read_thread(void *param) {
         }
 
         for (ne = 0; ne < nevents; ne++) {
-            int fd = pollfds[ne].fd;
+            int   fd      = pollfds[ne].fd;
             short revents = pollfds[ne].revents;
 
             if (revents & (POLLERR | POLLHUP | POLLNVAL)) {
                 dbg_time("%s poll err/hup/inval", __func__);
                 dbg_time("epoll fd = %d, events = 0x%04x", fd, revents);
                 if (revents & (POLLERR | POLLHUP | POLLNVAL))
-                goto __quit;
+                    goto __quit;
             }
 
             if ((revents & POLLIN) == 0)
                 continue;
 
             if (atc_fd == fd) {
-                usleep(10*1000); //let atchannel.c read at response.
-            }
-            else if (fd == qmidevice_control_fd[1]) {
+                usleep(10 * 1000); //let atchannel.c read at response.
+            } else if (fd == qmidevice_control_fd[1]) {
                 int triger_event;
                 if (read(fd, &triger_event, sizeof(triger_event)) == sizeof(triger_event)) {
                     //dbg_time("triger_event = 0x%x", triger_event);
                     switch (triger_event) {
                         case RIL_REQUEST_QUIT:
                             goto __quit;
-                        break;
+                            break;
                         case SIG_EVENT_STOP:
                             wait_for_request_quit = 1;
-                        break;
+                            break;
                         default:
-                        break;
+                            break;
                     }
                 }
             }
@@ -223,14 +248,15 @@ __quit:
 }
 
 const struct qmi_device_ops atc_dev_ops = {
-    .init = atc_init,
+    .init   = atc_init,
     .deinit = atc_deinit,
-    .read = atc_read_thread,
+    .read   = atc_read_thread,
 };
 
-static int requestBaseBandVersion(PROFILE_T *profile) {
-    int retVal = -1;
-    int err;
+static int requestBaseBandVersion(PROFILE_T *profile)
+{
+    int         retVal = -1;
+    int         err;
     ATResponse *p_response = NULL;
 
     (void)profile;
@@ -240,8 +266,16 @@ static int requestBaseBandVersion(PROFILE_T *profile) {
         goto exit;
 
     if (p_response->p_intermediates && p_response->p_intermediates->line) {
-        strncpy(profile->BaseBandVersion, p_response->p_intermediates->line, sizeof(profile->BaseBandVersion) - 1);
+        strncpy(profile->BaseBandVersion,
+                p_response->p_intermediates->line,
+                sizeof(profile->BaseBandVersion) - 1);
         retVal = 0;
+    }
+
+    if (strStartsWith(profile->BaseBandVersion, "EG800G")) {
+        style_atc = EG800G;
+    } else if (strStartsWith(profile->BaseBandVersion, "EG800Q")) {
+        style_atc = EG800Q;
     }
 
 exit:
@@ -251,65 +285,55 @@ exit:
 
 static int requestGetSIMStatus(SIM_Status *pSIMStatus)
 {
-    int err;
+    int         err;
     ATResponse *p_response = NULL;
-    char *cpinLine;
-    char *cpinResult;
-    int ret = SIM_NOT_READY;
+    char       *cpinLine;
+    char       *cpinResult;
+    int         ret = SIM_NOT_READY;
 
     err = at_send_command_singleline("AT+CPIN?", "+CPIN:", &p_response);
     if (at_response_error(err, p_response))
         goto done;
 
-    switch (at_get_cme_error(p_response))
-    {
-    case CME_SUCCESS:
-        break;
+    switch (at_get_cme_error(p_response)) {
+        case CME_SUCCESS:
+            break;
 
-    case CME_SIM_NOT_INSERTED:
-    case CME_OPERATION_NOT_ALLOWED:
-    case CME_FAILURE:
-        ret = SIM_ABSENT;
-        goto done;
+        case CME_SIM_NOT_INSERTED:
+        case CME_OPERATION_NOT_ALLOWED:
+        case CME_FAILURE:
+            ret = SIM_ABSENT;
+            goto done;
 
-    default:
-        ret = SIM_NOT_READY;
-        goto done;
+        default:
+            ret = SIM_NOT_READY;
+            goto done;
     }
 
     cpinLine = p_response->p_intermediates->line;
-    err = at_tok_start (&cpinLine);
+    err      = at_tok_start(&cpinLine);
 
-    if (err < 0)
-    {
+    if (err < 0) {
         ret = SIM_NOT_READY;
         goto done;
     }
 
     err = at_tok_nextstr(&cpinLine, &cpinResult);
 
-    if (err < 0)
-    {
+    if (err < 0) {
         ret = SIM_NOT_READY;
         goto done;
     }
 
-    if (0 == strcmp (cpinResult, "SIM PIN"))
-    {
+    if (0 == strcmp(cpinResult, "SIM PIN")) {
         ret = SIM_PIN;
         goto done;
-    }
-    else if (0 == strcmp (cpinResult, "SIM PUK"))
-    {
+    } else if (0 == strcmp(cpinResult, "SIM PUK")) {
         ret = SIM_PUK;
         goto done;
-    }
-    else if (0 == strcmp (cpinResult, "PH-NET PIN"))
-    {
+    } else if (0 == strcmp(cpinResult, "PH-NET PIN")) {
         return SIM_NETWORK_PERSONALIZATION;
-    }
-    else if (0 != strcmp (cpinResult, "READY"))
-    {
+    } else if (0 != strcmp(cpinResult, "READY")) {
         /* we're treating unsupported lock types as "sim absent" */
         ret = SIM_ABSENT;
         goto done;
@@ -323,11 +347,12 @@ done:
     return err;
 }
 
-static int requestEnterSimPin(const char *pPinCode) {
-    int retVal = -1;
-    int err;
+static int requestEnterSimPin(const char *pPinCode)
+{
+    int         retVal = -1;
+    int         err;
     ATResponse *p_response = NULL;
-    char *cmd = NULL;
+    char       *cmd        = NULL;
 
     asprintf(&cmd, "AT+CPIN=%s", pPinCode);
     err = at_send_command(cmd, NULL);
@@ -341,35 +366,46 @@ static int requestEnterSimPin(const char *pPinCode) {
     return retVal;
 }
 
-static int requestSetProfile(PROFILE_T *profile) {
-    int err;
-    ATResponse *p_response = NULL;
-    char *cmd = NULL;
-    const char *new_apn = profile->apn ? profile->apn : "";
-    const char *new_user = profile->user ? profile->user : "";
+static int requestSetProfile(PROFILE_T *profile)
+{
+    int         err;
+    ATResponse *p_response   = NULL;
+    char       *cmd          = NULL;
+    const char *new_apn      = profile->apn ? profile->apn : "";
+    const char *new_user     = profile->user ? profile->user : "";
     const char *new_password = profile->password ? profile->password : "";
-    const char *ipStr[] = {"NULL", "IPV4", "IPV6", "IPV4V6"};
+    const char *ipStr[]      = { "NULL", "IPV4", "IPV6", "IPV4V6" };
 
-    dbg_time("%s[%d] %s/%s/%s/%d/%s", __func__,
-        profile->pdp, profile->apn, profile->user, profile->password,
-        profile->auth,ipStr[profile->iptype]);
+    dbg_time("%s[%d] %s/%s/%s/%d/%s",
+             __func__,
+             profile->pdp,
+             profile->apn,
+             profile->user,
+             profile->password,
+             profile->auth,
+             ipStr[profile->iptype]);
 
-    if ( !strcmp(profile->old_apn, new_apn) && !strcmp(profile->old_user, new_user)
-        && !strcmp(profile->old_password, new_password)
-        && profile->old_iptype == profile->iptype
-        && profile->old_auth == profile->auth)
-    {
+    if (!strcmp(profile->old_apn, new_apn) && !strcmp(profile->old_user, new_user) &&
+        !strcmp(profile->old_password, new_password) && profile->old_iptype == profile->iptype &&
+        profile->old_auth == profile->auth) {
         dbg_time("no need to set skip the rest");
         return 0;
     }
 
-    asprintf(&cmd, "AT+QICSGP=%d,%d,\"%s\",\"%s\",\"%s\",%d",
-        profile->pdp, profile->iptype, new_apn, new_user, new_password, profile->auth);
+    asprintf(&cmd,
+             "AT+QICSGP=%d,%d,\"%s\",\"%s\",\"%s\",%d",
+             profile->pdp,
+             profile->iptype,
+             new_apn,
+             new_user,
+             new_password,
+             profile->auth);
     err = at_send_command(cmd, &p_response);
     safe_free(cmd);
     if (at_response_error(err, p_response)) {
         safe_at_response_free(p_response);
-        asprintf(&cmd, "AT+CGDCONT=%d,\"%s\",\"%s\"", profile->pdp, ipStr[profile->iptype], new_apn);
+        asprintf(
+            &cmd, "AT+CGDCONT=%d,\"%s\",\"%s\"", profile->pdp, ipStr[profile->iptype], new_apn);
         err = at_send_command(cmd, &p_response);
         safe_free(cmd);
     }
@@ -378,16 +414,17 @@ static int requestSetProfile(PROFILE_T *profile) {
     return 1;
 }
 
-static int requestGetProfile(PROFILE_T *profile) {
-    int retVal = -1;
-    int err;
+static int requestGetProfile(PROFILE_T *profile)
+{
+    int         retVal = -1;
+    int         err;
     ATResponse *p_response = NULL;
-    char *cmd = NULL;
-    int pdp;
-    int old_iptype = 1; // 1 ~ IPV4, 2 ~ IPV6, 3 ~ IPV4V6
-    char *old_apn = "", *old_user = "", *old_password = "";
-    int old_auth = 0;
-    const char *ipStr[] = {"NULL", "IPV4", "IPV6", "IPV4V6"};
+    char       *cmd        = NULL;
+    int         pdp;
+    int         old_iptype = 1; // 1 ~ IPV4, 2 ~ IPV6, 3 ~ IPV4V6
+    char       *old_apn = "", *old_user = "", *old_password = "";
+    int         old_auth = 0;
+    const char *ipStr[]  = { "NULL", "IPV4", "IPV6", "IPV4V6" };
 
     if (profile->enable_ipv4 && profile->enable_ipv6)
         profile->iptype = 3;
@@ -414,14 +451,18 @@ _re_check:
 
     if (!at_response_error(err, p_response)) {
         err = at_tok_scanf(p_response->p_intermediates->line,
-            "%d%s%s%s%d", &old_iptype, &old_apn,  &old_user, &old_password, &old_auth);
+                           "%d%s%s%s%d",
+                           &old_iptype,
+                           &old_apn,
+                           &old_user,
+                           &old_password,
+                           &old_auth);
 
         if (err != 4 || pdp != profile->pdp)
             goto _error;
-    }
-    else {
-        ATLine *atLine = NULL;
-        char *cgdcont_iptype = NULL;
+    } else {
+        ATLine *atLine         = NULL;
+        char   *cgdcont_iptype = NULL;
 
         safe_at_response_free(p_response);
         err = at_send_command_multiline("AT+CGDCONT?", "+CGDCONT:", &p_response);
@@ -435,58 +476,66 @@ _re_check:
                 if (!strcasecmp(cgdcont_iptype, ipStr[3]))
                     old_iptype = 3;
                 else if (!strcasecmp(cgdcont_iptype, ipStr[2]))
-                     old_iptype = 2;
+                    old_iptype = 2;
                 else
                     old_iptype = 1;
-               break;
+                break;
             }
             old_apn = NULL;
-            atLine = atLine->p_next;
+            atLine  = atLine->p_next;
         }
     }
 
     retVal = 0;
 
 _error:
-    if (!old_apn) old_apn = "";
-    if (!old_user) old_user = "";
-    if (!old_password) old_password = "";
+    if (!old_apn)
+        old_apn = "";
+    if (!old_user)
+        old_user = "";
+    if (!old_password)
+        old_password = "";
 
     strncpy(profile->old_apn, old_apn, sizeof(profile->old_apn));
     strncpy(profile->old_user, old_user, sizeof(profile->old_user));
     strncpy(profile->old_password, old_password, sizeof(profile->old_password));
-    profile->old_auth = old_auth;
-    profile->old_iptype = old_iptype; 
+    profile->old_auth   = old_auth;
+    profile->old_iptype = old_iptype;
 
-    dbg_time("%s[%d] %s/%s/%s/%d/%s", __func__,
-        profile->pdp, profile->old_apn, profile->old_user, profile->old_password,
-        profile->old_auth, ipStr[profile->old_iptype]);
+    dbg_time("%s[%d] %s/%s/%s/%d/%s",
+             __func__,
+             profile->pdp,
+             profile->old_apn,
+             profile->old_user,
+             profile->old_password,
+             profile->old_auth,
+             ipStr[profile->old_iptype]);
 
     safe_at_response_free(p_response);
 
     return retVal;
 }
 
-static int requestRegistrationState(UCHAR *pPSAttachedState) {
-    int retVal = -1;
-    int err;
+static int requestRegistrationState(UCHAR *pPSAttachedState)
+{
+    int         retVal = -1;
+    int         err;
     ATResponse *p_response = NULL;
-    ATLine *p_cur;
-    int i;
-    int cops_act = -1;
-    int state = 0, lac = 0, cid = 0, act = 0;
-    int commas;
-    char *line;
+    ATLine     *p_cur;
+    int         i;
+    int         cops_act = -1;
+    int         state = 0, lac = 0, cid = 0, act = 0;
+    int         commas;
+    char       *line;
 
     *pPSAttachedState = 0;
 
     err = at_send_command_multiline(
-              "AT+COPS=3,0;+COPS?;+COPS=3,1;+COPS?;+COPS=3,2;+COPS?",
-              "+COPS:", &p_response);
+        "AT+COPS=3,0;+COPS?;+COPS=3,1;+COPS?;+COPS=3,2;+COPS?", "+COPS:", &p_response);
     if (at_response_error(err, p_response))
         goto error;
 
-/*
+    /*
 AT< +COPS: 0,0,"CHINA MOBILE",13
 AT< +COPS: 0,1,"CMCC",13
 AT< +COPS: 0,2,"46000",13
@@ -495,7 +544,8 @@ AT< OK
     retVal = 0;
     for (i = 0, p_cur = p_response->p_intermediates; p_cur != NULL; p_cur = p_cur->p_next, i++) {
         err = at_tok_scanf(p_cur->line, "%d%d%s%d", NULL, NULL, NULL, &cops_act);
-        if (err != 4) goto error;
+        if (err != 4)
+            goto error;
 
         break;
     }
@@ -503,65 +553,72 @@ AT< OK
     safe_at_response_free(p_response);
     switch (cops_act) {
         case 2: //UTRAN
+        case 3: //GSM W/EGPRS
         case 4: //UTRAN W/HSDPA
         case 5: //UTRAN W/HSUPA
         case 6: //UTRAN W/HSDPA and HSUPA
             //AT+CGREG  GPRS Network Registration Status
             err = at_send_command_singleline("AT+CGREG?", "+CGREG:", &p_response);
-        break;
+            break;
 
-        case 7: //E-UTRAN
+        case 7:  //E-UTRAN
         case 13: //E-UTRAN-NR dual connectivity
             //AT+CEREG  EPS Network Registration Status
             err = at_send_command_singleline("AT+CEREG?", "+CEREG:", &p_response);
-        break;
+            break;
 
         case 10: //E-UTRAN connected to a 5GCN
         case 11: //NR connected to a 5GCN
         case 12: //NG-RAN
             //AT+C5GREG  5GS Network Registration Status
             err = at_send_command_singleline("AT+C5GREG?", "+C5GREG:", &p_response);
-        break;
+            break;
 
         default:
             goto error;
-        break;
+            break;
     }
 
     if (at_response_error(err, p_response))
         goto error;
-    if (!p_response->p_intermediates || !p_response->p_intermediates->line) goto error;
+    if (!p_response->p_intermediates || !p_response->p_intermediates->line)
+        goto error;
 
-    line = p_response->p_intermediates->line;
+    line   = p_response->p_intermediates->line;
     commas = at_tok_count(line);
-     switch (commas) {
+    switch (commas) {
         case 0: /* +CREG: <stat> */
             err = at_tok_nextint(&line, &state);
-            if (err < 0) goto error;
+            if (err < 0)
+                goto error;
             break;
 
         case 1: /* +CREG: <n>, <stat> */
             err = at_tok_scanf(line, "%d%d", NULL, &state);
-            if (err != 2) goto error;
+            if (err != 2)
+                goto error;
             break;
 
         case 2: /* +CREG: <stat>, <lac>, <cid> */
             err = at_tok_scanf(line, "%d%x%x", NULL, &state, &lac, &cid);
-            if (err != 3) goto error;
+            if (err != 3)
+                goto error;
             break;
 
         case 3: /* +CREG: <n>, <stat>, <lac>, <cid> */
             err = at_tok_scanf(line, "%d%d%x%x", NULL, &state, &lac, &cid);
-            if (err != 4) goto error;
+            if (err != 4)
+                goto error;
             break;
 
         case 4: //<n>, <stat>, <lac>, <cid>, <networkType> */
         case 5:
-        case 6: 
+        case 6:
         case 7:
             err = at_tok_scanf(line, "%d%d%x%x%d", NULL, &state, &lac, &cid, &act);
-            if (err != 5) goto error;
-        break;
+            if (err != 5)
+                goto error;
+            break;
 
         default:
             goto error;
@@ -578,17 +635,19 @@ error:
     return retVal;
 }
 
-static int requestSetupDataCall(PROFILE_T *profile, int curIpFamily) {
-    int err;
+static int requestSetupDataCall(PROFILE_T *profile, int curIpFamily)
+{
+    int         err;
     ATResponse *p_response = NULL;
-    char *cmd = NULL;
-    ATLine *p_cur = NULL;
-    int pdp = profile->pdp;
-    int state = 0;
+    char       *cmd        = NULL;
+    ATLine     *p_cur      = NULL;
+    int         pdp        = profile->pdp;
+    int         state      = 0;
 
     (void)curIpFamily;
 
-    if (strStartsWith(profile->BaseBandVersion, "RG801H") || strStartsWith(profile->BaseBandVersion, "EC200H")) {
+    if (strStartsWith(profile->BaseBandVersion, "RG801H") ||
+        strStartsWith(profile->BaseBandVersion, "EC200H")) {
         //RG801H will miss USB_CDC_NOTIFY_NETWORK_CONNECTION
         asprintf(&cmd, "ifconfig %s up", profile->usbnet_adapter);
         if (system(cmd)) {};
@@ -602,13 +661,13 @@ static int requestSetupDataCall(PROFILE_T *profile, int curIpFamily) {
 
         for (p_cur = p_response->p_intermediates; p_cur != NULL; p_cur = p_cur->p_next) {
             int cid = 0;
-			state = 0;
-			
+            state   = 0;
+
             err = at_tok_scanf(p_cur->line, "%d%d", &cid, &state);
             if (cid == pdp)
                 break;
-			else if(state)
-				state = 0;
+            else if (state)
+                state = 0;
         }
         safe_at_response_free(p_response);
 
@@ -621,7 +680,7 @@ static int requestSetupDataCall(PROFILE_T *profile, int curIpFamily) {
         }
     }
 
-    if(asr_style_atc)
+    if (asr_style_atc)
         asprintf(&cmd, "AT+QNETDEVCTL=1,%d,%d", pdp, 1);
     else
         asprintf(&cmd, "AT+QNETDEVCTL=%d,1,%d", pdp, 1);
@@ -631,14 +690,16 @@ static int requestSetupDataCall(PROFILE_T *profile, int curIpFamily) {
     if (at_response_error(err, p_response))
         goto _error;
 
-    if (!asr_style_atc) { //TODO some modems do not sync return setup call resule
+    if (!asr_style_atc &&
+        style_atc != EG800Q) { //TODO some modems do not sync return setup call resule
         int t = 0;
 
         while (t++ < 15) {
             asprintf(&cmd, "AT+QNETDEVSTATUS=%d", pdp);
             err = at_send_command_singleline(cmd, "+QNETDEVSTATUS", &p_response);
             safe_free(cmd);
-            if (err) goto _error;
+            if (err)
+                goto _error;
 
             if (!at_response_error(err, p_response)) {
                 break;
@@ -653,36 +714,96 @@ static int requestSetupDataCall(PROFILE_T *profile, int curIpFamily) {
 
 _error:
     safe_at_response_free(p_response);
-    //dbg_time("%s err=%d", __func__, err);
+    dbg_time("%s err=%d", __func__, err);
     return err;
 }
 
-static int at_netdevstatus(int pdp, unsigned int *pV4Addr) {
-    int err;
-    ATResponse *p_response = NULL;
-    char *cmd = NULL;
-    char *ipv4_address = NULL;
-    char *ipv4_gate = NULL;
-    char *ipv4_DHCP = NULL;
-    char *ipv4_pDNS = NULL;
-    char *ipv4_sDNS = NULL;
-    char *ipv6_address = NULL;
-    char *ipv6_gate = NULL;
-    char *ipv6_DHCP = NULL;
-    char *ipv6_pDNS = NULL;
-    char *ipv6_sDNS = NULL;
+static int at_netdevstatus(int pdp, unsigned int *pV4Addr)
+{
+    int         err;
+    ATResponse *p_response   = NULL;
+    char       *cmd          = NULL;
+    char       *ipv4_address = NULL;
+    char       *ipv4_gate    = NULL;
+    char       *ipv4_DHCP    = NULL;
+    char       *ipv4_pDNS    = NULL;
+    char       *ipv4_sDNS    = NULL;
+    char       *ipv6_address = NULL;
+    char       *ipv6_gate    = NULL;
+    char       *ipv6_DHCP    = NULL;
+    char       *ipv6_pDNS    = NULL;
+    char       *ipv6_sDNS    = NULL;
 
     *pV4Addr = 0;
+
+    if (style_atc == EG800Q) {
+        err = at_send_command_multiline("AT+QNETDEVSTATUS?", "+QNETDEVSTATUS:", &p_response);
+        if (at_response_error(err, p_response))
+            goto _error;
+        for (ATLine *p_cur = p_response->p_intermediates; p_cur != NULL; p_cur = p_cur->p_next) {
+            //+QNETDEVSTATUS: <on_off>[,<state>[,<IP_type>[,<instance>]]]
+            int on_off, state, type, instance;
+            err = at_tok_scanf(p_cur->line, "%d%d%d%d", &on_off, &state, &type, &instance);
+            if (err != 4 && type != 4)
+                continue;
+            // dbg_time("on_off=%d state=%d type=%d instance=%d", on_off, state, type, instance);
+            if (state == 2) {
+                // *pV4Addr = 192 | (168 << 8) | (10 << 16) | (2 << 24);
+                break;
+            }
+        }
+
+        asprintf(&cmd, "AT+CGPADDR=%d", pdp);
+        err = at_send_command_singleline(cmd, "+CGPADDR:", &p_response);
+        safe_free(cmd);
+        if (at_response_error(err, p_response))
+            goto _error;
+
+        //+CGPADDR: 1,"10.201.80.91","2409:8930:4B3:41C7:F9B8:3D9B:A2F7:CA96"
+        for (ATLine *p_cur = p_response->p_intermediates; p_cur != NULL; p_cur = p_cur->p_next) {
+            char *ipv4 = NULL;
+            char *ipv6 = NULL;
+            int   _pdp = 0;
+
+            err = at_tok_scanf(p_cur->line, "%d%s%s", &_pdp, &ipv4, &ipv6);
+            if (err < 2 || _pdp != pdp)
+                continue;
+
+            if (ipv4) {
+                int addr[4] = { 0, 0, 0, 0 };
+
+                sscanf(ipv4, "%d.%d.%d.%d", &addr[0], &addr[1], &addr[2], &addr[3]);
+                if (check_mcu_endian()) {
+                    *pV4Addr = (addr[0]) | (addr[1] << 8) | (addr[2] << 16) | (addr[3] << 24);
+                } else {
+                    *pV4Addr = (addr[0]) << 24 | (addr[1] << 16) | (addr[2] << 8) | (addr[3]);
+                }
+                break;
+            }
+        }
+        goto _error;
+    }
 
     asprintf(&cmd, "AT+QNETDEVSTATUS=%d", pdp);
     err = at_send_command_singleline(cmd, "+QNETDEVSTATUS", &p_response);
     safe_free(cmd);
-    if (at_response_error(err, p_response)) goto _error;
-    if (!p_response->p_intermediates || !p_response->p_intermediates->line) goto _error;
+    if (at_response_error(err, p_response))
+        goto _error;
+    if (!p_response->p_intermediates || !p_response->p_intermediates->line)
+        goto _error;
 
-    err = at_tok_scanf(p_response->p_intermediates->line, "%s%s%s%s%s%s%s%s%s%s",
-        &ipv4_address, &ipv4_gate, &ipv4_DHCP, &ipv4_pDNS, &ipv4_sDNS,
-        &ipv6_address, &ipv6_gate, &ipv6_DHCP, &ipv6_pDNS, &ipv6_sDNS);
+    err = at_tok_scanf(p_response->p_intermediates->line,
+                       "%s%s%s%s%s%s%s%s%s%s",
+                       &ipv4_address,
+                       &ipv4_gate,
+                       &ipv4_DHCP,
+                       &ipv4_pDNS,
+                       &ipv4_sDNS,
+                       &ipv6_address,
+                       &ipv6_gate,
+                       &ipv6_DHCP,
+                       &ipv6_pDNS,
+                       &ipv6_sDNS);
     if (err > 0) {
 #if 0
         dbg_time("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
@@ -691,16 +812,19 @@ static int at_netdevstatus(int pdp, unsigned int *pV4Addr) {
 #endif
 
         if (ipv4_address && ipv4_address[0]) {
-            int addr[4] = {0, 0, 0, 0};
+            int addr[4] = { 0, 0, 0, 0 };
 
             if (strstr(ipv4_address, ".")) {
                 sscanf(ipv4_address, "%d.%d.%d.%d", &addr[0], &addr[1], &addr[2], &addr[3]);
-            }
-            else {
+            } else {
                 sscanf(ipv4_address, "%02X%02X%02X%02X", &addr[3], &addr[2], &addr[1], &addr[0]);
             }
-            *pV4Addr = (addr[0]) | (addr[1]<<8) | (addr[2]<<16) | (addr[3]<<24);
-       }
+            if (check_mcu_endian()) {
+                *pV4Addr = (addr[0]) | (addr[1] << 8) | (addr[2] << 16) | (addr[3] << 24);
+            } else {
+                *pV4Addr = (addr[0]) << 24 | (addr[1] << 16) | (addr[2] << 8) | (addr[3] << 0);
+            }
+        }
     }
 
 _error:
@@ -708,14 +832,15 @@ _error:
     return 0;
 }
 
-static int requestQueryDataCall(UCHAR  *pConnectionStatus, int curIpFamily) {
-    int err;
-    ATResponse *p_response = NULL;
-    ATLine *p_cur = NULL;
-    int state = 0;
-    int bind = 0;
-    int cid;
-    int pdp = s_pdp;
+static int requestQueryDataCall(UCHAR *pConnectionStatus, int curIpFamily)
+{
+    int          err;
+    ATResponse  *p_response = NULL;
+    ATLine      *p_cur      = NULL;
+    int          state      = 0;
+    int          bind       = 0;
+    int          cid;
+    int          pdp    = s_pdp;
     unsigned int v4Addr = 0;
 
     (void)curIpFamily;
@@ -735,8 +860,7 @@ static int requestQueryDataCall(UCHAR  *pConnectionStatus, int curIpFamily) {
     if (at_response_error(err, p_response))
         goto _error;
 
-    for (p_cur = p_response->p_intermediates; p_cur != NULL; p_cur = p_cur->p_next)
-    {
+    for (p_cur = p_response->p_intermediates; p_cur != NULL; p_cur = p_cur->p_next) {
         //+QNETDECTL:<op>,<cid>,<urc_en>,<state>
         err = at_tok_scanf(p_cur->line, "%d%d%d%d", &bind, &cid, NULL, &state);
         if (err != 4 || cid != pdp)
@@ -753,14 +877,13 @@ static int requestQueryDataCall(UCHAR  *pConnectionStatus, int curIpFamily) {
     if (at_response_error(err, p_response))
         goto _error;
 
-    for (p_cur = p_response->p_intermediates; p_cur != NULL; p_cur = p_cur->p_next)
-    {
-		state = 0;
-        err = at_tok_scanf(p_cur->line, "%d%d", &cid, &state);
+    for (p_cur = p_response->p_intermediates; p_cur != NULL; p_cur = p_cur->p_next) {
+        state = 0;
+        err   = at_tok_scanf(p_cur->line, "%d%d", &cid, &state);
         if (cid == pdp)
             break;
-		else if(state)
-			state = 0;
+        else if (state)
+            state = 0;
     }
     safe_at_response_free(p_response);
 
@@ -769,20 +892,28 @@ static int requestQueryDataCall(UCHAR  *pConnectionStatus, int curIpFamily) {
 
 _error:
     safe_at_response_free(p_response);
-    //dbg_time("%s err=%d, call_state=%d", __func__, err, *pConnectionStatus);
+    // dbg_time("%s err=%d, call_state=%d", __func__, err, *pConnectionStatus);
     return 0;
 }
 
-static int requestDeactivateDefaultPDP(PROFILE_T *profile, int curIpFamily) {
+static int requestDeactivateDefaultPDP(PROFILE_T *profile, int curIpFamily)
+{
     char *cmd = NULL;
-    int pdp = profile->pdp;
+    int   pdp = profile->pdp;
 
     (void)curIpFamily;
 
-    if (asr_style_atc)
-        asprintf(&cmd, "AT+QNETDEVCTL=0,%d,%d", pdp, 0);
-    else
-        asprintf(&cmd, "AT+QNETDEVCTL=%d,0,%d", pdp, 0);
+    if (asr_style_atc) {
+        if (style_atc == EG800G)
+            asprintf(&cmd, "AT+QNETDEVCTL=0");
+        else
+            asprintf(&cmd, "AT+QNETDEVCTL=0,%d,%d", pdp, 0);
+    } else {
+        if (style_atc == EG800Q)
+            asprintf(&cmd, "AT+QNETDEVCTL=0,%d,%d", pdp, 0);
+        else
+            asprintf(&cmd, "AT+QNETDEVCTL=%d,0,%d", pdp, 0);
+    }
     at_send_command(cmd, NULL);
     safe_free(cmd);
 
@@ -790,13 +921,14 @@ static int requestDeactivateDefaultPDP(PROFILE_T *profile, int curIpFamily) {
     return 0;
 }
 
-static int requestGetIPAddress(PROFILE_T *profile, int curIpFamily) {
-    int err;
-    ATResponse *p_response = NULL;
-    char *cmd = NULL;
-    ATLine *p_cur = NULL;
-    int pdp = profile->pdp;
-    unsigned int v4Addr = 0;
+static int requestGetIPAddress(PROFILE_T *profile, int curIpFamily)
+{
+    int          err;
+    ATResponse  *p_response = NULL;
+    char        *cmd        = NULL;
+    ATLine      *p_cur      = NULL;
+    int          pdp        = profile->pdp;
+    unsigned int v4Addr     = 0;
 
     (void)curIpFamily;
 
@@ -812,8 +944,7 @@ static int requestGetIPAddress(PROFILE_T *profile, int curIpFamily) {
         goto _error;
 
     //+CGPADDR: 1,"10.201.80.91","2409:8930:4B3:41C7:F9B8:3D9B:A2F7:CA96"
-    for (p_cur = p_response->p_intermediates; p_cur != NULL; p_cur = p_cur->p_next)
-    {
+    for (p_cur = p_response->p_intermediates; p_cur != NULL; p_cur = p_cur->p_next) {
         char *ipv4 = NULL;
         char *ipv6 = NULL;
 
@@ -822,10 +953,14 @@ static int requestGetIPAddress(PROFILE_T *profile, int curIpFamily) {
             continue;
 
         if (ipv4) {
-            int addr[4] = {0, 0, 0, 0};
+            int addr[4] = { 0, 0, 0, 0 };
 
             sscanf(ipv4, "%d.%d.%d.%d", &addr[0], &addr[1], &addr[2], &addr[3]);
-            v4Addr = (addr[0]) | (addr[1]<<8) | (addr[2]<<16) | (addr[3]<<24);
+            if (check_mcu_endian()) {
+                v4Addr = (addr[0]) | (addr[1] << 8) | (addr[2] << 16) | (addr[3] << 24);
+            } else {
+                v4Addr = (addr[0]) << 24 | (addr[1] << 16) | (addr[2] << 8) | (addr[3]);
+            }
             break;
         }
     }
@@ -835,31 +970,35 @@ _error:
         unsigned char *v4 = (unsigned char *)&v4Addr;
 
         profile->ipv4.Address = v4Addr;
-        dbg_time("%s %d.%d.%d.%d", __func__, v4[0], v4[1], v4[2], v4[3]);    
+        dbg_time("%s %d.%d.%d.%d", __func__, v4[0], v4[1], v4[2], v4[3]);
     }
-        
+
     //dbg_time("%s err=%d", __func__, err);
     return v4Addr ? 0 : -1;
 }
 
-static int requestGetSignalInfo(void) {
-    int retVal = -1;
-    int err;
+static int requestGetSignalInfo(void)
+{
+    int         retVal = -1;
+    int         err;
     ATResponse *p_response = NULL;
-    int i;
-    ATLine *p_cur = NULL;
-    char *rat = NULL;
-    int cops_act = 0;
-    int is_nr5g_nsa = 0, nr5g_sa = 0;
-    int verbose = 0;
+    int         i;
+    ATLine     *p_cur       = NULL;
+    char       *rat         = NULL;
+    int         cops_act    = 0;
+    int         is_nr5g_nsa = 0, nr5g_sa = 0;
+    int         verbose = 0;
 
     err = at_send_command_singleline("at+cops?", "+COPS:", &p_response);
-    if (at_response_error(err, p_response)) goto _error;
-    if (!p_response->p_intermediates || !p_response->p_intermediates->line) goto _error;
+    if (at_response_error(err, p_response))
+        goto _error;
+    if (!p_response->p_intermediates || !p_response->p_intermediates->line)
+        goto _error;
 
     retVal = 0;
     err = at_tok_scanf(p_response->p_intermediates->line, "%d%d%s%d", NULL, NULL, NULL, &cops_act);
-    if (err != 4) goto _error;
+    if (err != 4)
+        goto _error;
 
     nr5g_sa = (cops_act == 11);
 
@@ -881,90 +1020,163 @@ static int requestGetSignalInfo(void) {
         if (!strcmp(state, "NOCONN") || !strcmp(state, "CONNECT")) {
             err = at_tok_scanf(p_cur->line, "%s%s%s", &type, &state, &rat);
             if (err != 3)
-                continue;        
-        }
-        else {
+                continue;
+        } else {
             rat = state;
         }
-       
-        if (!strcmp(rat, "NR5G-SA"))
-        {
-            //+QENG: "servingcell",<state>,"NR5G-SA",<duplex_mode>,<MCC>,<MNC>,<cellID>,<PCID>,<TAC>,<ARFCN>,<band>,<NR_DL_bandwidth>,<RSRP>,<RSRQ>,<SINR>,<tx_power>,<srxlev> 
+
+        if (!strcmp(rat, "NR5G-SA")) {
+            //+QENG: "servingcell",<state>,"NR5G-SA",<duplex_mode>,<MCC>,<MNC>,<cellID>,<PCID>,<TAC>,<ARFCN>,<band>,<NR_DL_bandwidth>,<RSRP>,<RSRQ>,<SINR>,<tx_power>,<srxlev>
             //+QENG: "servingcell","NOCONN","NR5G-SA","TDD", 454,12,0,21,4ED,636576,78,3,-85,-11,32,0,5184
             struct qeng_servingcell_nr5g_sa {
                 char *cell_type, *state, *rat, *is_tdd;
-                int MCC, MNC, cellID/*hex*/;
-                int PCID, TAC/*hex*/, ARFCN;
-                int band, NR_DL_bandwidth;
-                int RSRP, RSRQ, RSSI, SINR;
+                int   MCC, MNC, cellID /*hex*/;
+                int   PCID, TAC /*hex*/, ARFCN;
+                int   band, NR_DL_bandwidth;
+                int   RSRP, RSRQ, RSSI, SINR;
             };
             struct qeng_servingcell_nr5g_sa nr5g_sa;
 
             memset(&nr5g_sa, 0, sizeof(nr5g_sa));
-            err = at_tok_scanf(p_cur->line, "%s,%s,%s,%s,%d,%d,%x,%d,%x,%d,%d,%d,%d,%d,%d,%d",
-                &nr5g_sa.cell_type, &nr5g_sa.state, &nr5g_sa.rat, &nr5g_sa.is_tdd,
-                &nr5g_sa.MCC, &nr5g_sa.MNC, &nr5g_sa.cellID, &nr5g_sa.PCID, &nr5g_sa.TAC,
-                &nr5g_sa.ARFCN, &nr5g_sa.band, &nr5g_sa.NR_DL_bandwidth,
-                &nr5g_sa.RSRP, &nr5g_sa.RSRQ, &nr5g_sa.RSSI, &nr5g_sa.SINR);
+            err = at_tok_scanf(p_cur->line,
+                               "%s,%s,%s,%s,%d,%d,%x,%d,%x,%d,%d,%d,%d,%d,%d,%d",
+                               &nr5g_sa.cell_type,
+                               &nr5g_sa.state,
+                               &nr5g_sa.rat,
+                               &nr5g_sa.is_tdd,
+                               &nr5g_sa.MCC,
+                               &nr5g_sa.MNC,
+                               &nr5g_sa.cellID,
+                               &nr5g_sa.PCID,
+                               &nr5g_sa.TAC,
+                               &nr5g_sa.ARFCN,
+                               &nr5g_sa.band,
+                               &nr5g_sa.NR_DL_bandwidth,
+                               &nr5g_sa.RSRP,
+                               &nr5g_sa.RSRQ,
+                               &nr5g_sa.RSSI,
+                               &nr5g_sa.SINR);
 
             if (err >= 13 && verbose) {
                 dbg_time("%s,%s,%s,%s,%d,%d,%x,%d,%x,%d,%d,%d,%d,%d,%d,%d",
-                    nr5g_sa.cell_type, nr5g_sa.state, nr5g_sa.rat, nr5g_sa.is_tdd,
-                    nr5g_sa.MCC, nr5g_sa.MNC, nr5g_sa.cellID, nr5g_sa.PCID, nr5g_sa.TAC,
-                    nr5g_sa.ARFCN, nr5g_sa.band, nr5g_sa.NR_DL_bandwidth,
-                    nr5g_sa.RSRP, nr5g_sa.RSRQ, nr5g_sa.RSSI, nr5g_sa.SINR);
+                         nr5g_sa.cell_type,
+                         nr5g_sa.state,
+                         nr5g_sa.rat,
+                         nr5g_sa.is_tdd,
+                         nr5g_sa.MCC,
+                         nr5g_sa.MNC,
+                         nr5g_sa.cellID,
+                         nr5g_sa.PCID,
+                         nr5g_sa.TAC,
+                         nr5g_sa.ARFCN,
+                         nr5g_sa.band,
+                         nr5g_sa.NR_DL_bandwidth,
+                         nr5g_sa.RSRP,
+                         nr5g_sa.RSRQ,
+                         nr5g_sa.RSSI,
+                         nr5g_sa.SINR);
             }
-        }
-        else if (!strcmp(rat, "NR5G-NSA"))
-        {
+        } else if (!strcmp(rat, "NR5G-NSA")) {
             //+QENG: "NR5G-NSA",<MCC>,<MNC>,<PCID>,<RSRP>,< SINR>,<RSRQ>,<ARFCN>,<band>
             struct qeng_servingcell_nr5g_nsa {
                 char *mcc, *mnc;
-                int pcid, rsrp, sinr, rsrq;
+                int   pcid, rsrp, sinr, rsrq;
             };
             struct qeng_servingcell_nr5g_nsa nr5g_nsa;
-           
+
             memset(&nr5g_nsa, 0, sizeof(nr5g_nsa));
-            err = at_tok_scanf(p_cur->line, "%s%s%s%s%d%d%d%dd",
-                NULL, NULL, &nr5g_nsa.mcc, &nr5g_nsa.mnc, &nr5g_nsa.pcid, &nr5g_nsa.rsrp, &nr5g_nsa.sinr, &nr5g_nsa.rsrq);
-            if (err == 8 && verbose)
-            {
+            err = at_tok_scanf(p_cur->line,
+                               "%s%s%s%s%d%d%d%dd",
+                               NULL,
+                               NULL,
+                               &nr5g_nsa.mcc,
+                               &nr5g_nsa.mnc,
+                               &nr5g_nsa.pcid,
+                               &nr5g_nsa.rsrp,
+                               &nr5g_nsa.sinr,
+                               &nr5g_nsa.rsrq);
+            if (err == 8 && verbose) {
                 dbg_time("mcc=%s, mnc=%s, pcid=%d, rsrp=%d, sinr=%d, rsrq=%d",
-                    nr5g_nsa.mcc, nr5g_nsa.mnc, nr5g_nsa.pcid, nr5g_nsa.rsrp, nr5g_nsa.sinr, nr5g_nsa.rsrq);
+                         nr5g_nsa.mcc,
+                         nr5g_nsa.mnc,
+                         nr5g_nsa.pcid,
+                         nr5g_nsa.rsrp,
+                         nr5g_nsa.sinr,
+                         nr5g_nsa.rsrq);
             }
 
             is_nr5g_nsa = 1;
-        }
-        else if (!strcmp(rat, "LTE"))
-        {
+        } else if (!strcmp(rat, "LTE")) {
             //+QENG: "LTE",<is_tdd>,<MCC>,<MNC>,<cellID>,<PCID>,<earfcn>,<freq_band_ind>,<UL_bandwidth>,<DL_bandwidth>,<TAC>,<RSRP>,<RSRQ>,<RSSI>,<SINR>,<CQI>,<tx_power>,<srxlev>
             struct qeng_servingcell_lte {
                 char *is_tdd, *mcc, *mnc;
-                int cellID/*hex*/, pcid, earfcn, freq_band_ind, ul_bandwidth, dl_bandwidth;
-                int tac/*hex*/, rsrp, rsrq, rssi, sinr, cqi,tx_power,srxlev;
+                int   cellID /*hex*/, pcid, earfcn, freq_band_ind, ul_bandwidth, dl_bandwidth;
+                int   tac /*hex*/, rsrp, rsrq, rssi, sinr, cqi, tx_power, srxlev;
             };
             struct qeng_servingcell_lte lte;
 
             memset(&lte, 0, sizeof(lte));
             if (!strcmp(rat, state))
-                err = at_tok_scanf(p_cur->line, "%s%s%s%s%s%x%d%d%d%d%d%x%d%d%d%d%d%d%d",
-                    NULL, NULL, &lte.is_tdd, &lte.mcc, &lte.mnc,
-                    &lte.cellID, &lte.pcid, &lte.earfcn, &lte.freq_band_ind, &lte.ul_bandwidth, &lte.dl_bandwidth,
-                    &lte.tac, &lte.rsrp, &lte.rsrq, &lte.rssi, &lte.sinr, &lte.cqi, &lte.tx_power, &lte.srxlev);
+                err = at_tok_scanf(p_cur->line,
+                                   "%s%s%s%s%s%x%d%d%d%d%d%x%d%d%d%d%d%d%d",
+                                   NULL,
+                                   NULL,
+                                   &lte.is_tdd,
+                                   &lte.mcc,
+                                   &lte.mnc,
+                                   &lte.cellID,
+                                   &lte.pcid,
+                                   &lte.earfcn,
+                                   &lte.freq_band_ind,
+                                   &lte.ul_bandwidth,
+                                   &lte.dl_bandwidth,
+                                   &lte.tac,
+                                   &lte.rsrp,
+                                   &lte.rsrq,
+                                   &lte.rssi,
+                                   &lte.sinr,
+                                   &lte.cqi,
+                                   &lte.tx_power,
+                                   &lte.srxlev);
             else
-                 err = at_tok_scanf(p_cur->line, "%s%s%s%s%s%s%x%d%d%d%d%d%x%d%d%d%d%d%d%d",
-                    NULL, NULL, NULL, &lte.is_tdd, &lte.mcc, &lte.mnc,
-                    &lte.cellID, &lte.pcid, &lte.earfcn, &lte.freq_band_ind, &lte.ul_bandwidth, &lte.dl_bandwidth,
-                    &lte.tac, &lte.rsrp, &lte.rsrq, &lte.rssi, &lte.sinr, &lte.cqi, &lte.tx_power, &lte.srxlev);
-            
-                if (err >= 18 && verbose)
-                {
-                    dbg_time("is_tdd=%s, mcc=%s, mnc=%s", lte.is_tdd, lte.mcc, lte.mnc);
-                    dbg_time("cellID=%x, pcid=%d, earfcn=%d", lte.cellID, lte.pcid, lte.earfcn);
-                    dbg_time("freq_band_ind=%d, ul_bandwidth=%d, dl_bandwidth=%d", lte.freq_band_ind, lte.ul_bandwidth, lte.dl_bandwidth);
-                    dbg_time("tac=%x, rsrp=%d, rsrq=%d, rssi=%d, sinr=%d", lte.tac, lte.rsrp, lte.rsrq, lte.rssi, lte.sinr);
-                    dbg_time("cqi=%d, tx_power=%d, earfcn=%d", lte.cqi, lte.tx_power, lte.srxlev);
-                }
+                err = at_tok_scanf(p_cur->line,
+                                   "%s%s%s%s%s%s%x%d%d%d%d%d%x%d%d%d%d%d%d%d",
+                                   NULL,
+                                   NULL,
+                                   NULL,
+                                   &lte.is_tdd,
+                                   &lte.mcc,
+                                   &lte.mnc,
+                                   &lte.cellID,
+                                   &lte.pcid,
+                                   &lte.earfcn,
+                                   &lte.freq_band_ind,
+                                   &lte.ul_bandwidth,
+                                   &lte.dl_bandwidth,
+                                   &lte.tac,
+                                   &lte.rsrp,
+                                   &lte.rsrq,
+                                   &lte.rssi,
+                                   &lte.sinr,
+                                   &lte.cqi,
+                                   &lte.tx_power,
+                                   &lte.srxlev);
+
+            if (err >= 18 && verbose) {
+                dbg_time("is_tdd=%s, mcc=%s, mnc=%s", lte.is_tdd, lte.mcc, lte.mnc);
+                dbg_time("cellID=%x, pcid=%d, earfcn=%d", lte.cellID, lte.pcid, lte.earfcn);
+                dbg_time("freq_band_ind=%d, ul_bandwidth=%d, dl_bandwidth=%d",
+                         lte.freq_band_ind,
+                         lte.ul_bandwidth,
+                         lte.dl_bandwidth);
+                dbg_time("tac=%x, rsrp=%d, rsrq=%d, rssi=%d, sinr=%d",
+                         lte.tac,
+                         lte.rsrp,
+                         lte.rsrq,
+                         lte.rssi,
+                         lte.sinr);
+                dbg_time("cqi=%d, tx_power=%d, earfcn=%d", lte.cqi, lte.tx_power, lte.srxlev);
+            }
         }
     }
 
@@ -974,11 +1186,17 @@ static int requestGetSignalInfo(void) {
         is_nr5g_nsa = 0;
         safe_at_response_free(p_response);
         err = at_send_command_multiline("at+qendc", "+QENDC:", &p_response);
-        if (at_response_error(err, p_response)) goto _error;
-        if (!p_response->p_intermediates || !p_response->p_intermediates->line) goto _error;
+        if (at_response_error(err, p_response))
+            goto _error;
+        if (!p_response->p_intermediates || !p_response->p_intermediates->line)
+            goto _error;
 
-        err = at_tok_scanf(p_response->p_intermediates->line, "%d%d%d%d",
-            &endc_avl, &plmn_info_list_r15_avl, &endc_rstr, &nr5g_basic);
+        err = at_tok_scanf(p_response->p_intermediates->line,
+                           "%d%d%d%d",
+                           &endc_avl,
+                           &plmn_info_list_r15_avl,
+                           &endc_rstr,
+                           &nr5g_basic);
         if (err == 4 && nr5g_basic) {
             is_nr5g_nsa = 1;
         }
@@ -992,18 +1210,22 @@ _error:
     return retVal;
 }
 
-static int requestGetICCID(void) {
-    int retVal = -1;
-    int err;
+static int requestGetICCID(void)
+{
+    int         retVal = -1;
+    int         err;
     ATResponse *p_response = NULL;
-    char *iccid;
+    char       *iccid;
 
     err = at_send_command_singleline("AT+QCCID", "+QCCID:", &p_response);
-    if (at_response_error(err, p_response)) goto _error;
-    if (!p_response->p_intermediates || !p_response->p_intermediates->line) goto _error;
+    if (at_response_error(err, p_response))
+        goto _error;
+    if (!p_response->p_intermediates || !p_response->p_intermediates->line)
+        goto _error;
 
     err = at_tok_scanf(p_response->p_intermediates->line, "%s", &iccid);
-    if (err != 1) goto _error;
+    if (err != 1)
+        goto _error;
 
     if (iccid && iccid[0]) {
         dbg_time("%s %s", __func__, iccid);
@@ -1015,15 +1237,18 @@ _error:
     return retVal;
 }
 
-static int requestGetIMSI(void) {
-    int retVal = -1;
-    int err;
+static int requestGetIMSI(void)
+{
+    int         retVal = -1;
+    int         err;
     ATResponse *p_response = NULL;
-    char *imsi;
+    char       *imsi;
 
     err = at_send_command_numeric("AT+CIMI", &p_response);
-    if (at_response_error(err, p_response)) goto _error;
-    if (!p_response->p_intermediates || !p_response->p_intermediates->line) goto _error;
+    if (at_response_error(err, p_response))
+        goto _error;
+    if (!p_response->p_intermediates || !p_response->p_intermediates->line)
+        goto _error;
 
     imsi = p_response->p_intermediates->line;
     if (imsi) {
@@ -1037,18 +1262,17 @@ _error:
 }
 
 const struct request_ops atc_request_ops = {
-    .requestBaseBandVersion = requestBaseBandVersion,
-    .requestGetSIMStatus = requestGetSIMStatus,
-    .requestEnterSimPin = requestEnterSimPin,
-    .requestSetProfile = requestSetProfile,
-    .requestGetProfile = requestGetProfile,
-    .requestRegistrationState = requestRegistrationState,
-    .requestSetupDataCall = requestSetupDataCall,
-    .requestQueryDataCall = requestQueryDataCall,
+    .requestBaseBandVersion      = requestBaseBandVersion,
+    .requestGetSIMStatus         = requestGetSIMStatus,
+    .requestEnterSimPin          = requestEnterSimPin,
+    .requestSetProfile           = requestSetProfile,
+    .requestGetProfile           = requestGetProfile,
+    .requestRegistrationState    = requestRegistrationState,
+    .requestSetupDataCall        = requestSetupDataCall,
+    .requestQueryDataCall        = requestQueryDataCall,
     .requestDeactivateDefaultPDP = requestDeactivateDefaultPDP,
-    .requestGetIPAddress = requestGetIPAddress,
-    .requestGetSignalInfo = requestGetSignalInfo,
-    .requestGetICCID = requestGetICCID,
-    .requestGetIMSI = requestGetIMSI,
+    .requestGetIPAddress         = requestGetIPAddress,
+    .requestGetSignalInfo        = requestGetSignalInfo,
+    .requestGetICCID             = requestGetICCID,
+    .requestGetIMSI              = requestGetIMSI,
 };
-
