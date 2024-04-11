@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 2.4) 
 
 project(quectel-CM) 
-add_definitions(-Wall -Wextra -O1)
+add_definitions(-Wall -Wextra -Werror -O1)
 option(USE_QRTR "Enable QRTR" OFF) 
 
 set( QL_CM_SRC
-     QmiWwanCM.c GobiNetCM.c main.c MPQMUX.c QMIThread.c util.c qmap_bridge_mode.c mbim-cm.c device.c
+     QmiWwanCM.c GobiNetCM.c main.c QCQMUX.c QMIThread.c util.c qmap_bridge_mode.c mbim-cm.c device.c
      atc.c atchannel.c at_tok.c
      udhcpc.c
      )

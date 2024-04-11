@@ -9,24 +9,23 @@
   None.
 
   ---------------------------------------------------------------------------
-  Copyright (c) 2016 - 2020 Quectel Wireless Solution, Co., Ltd.  All Rights Reserved.
+  Copyright (c) 2016 - 2023 Quectel Wireless Solution, Co., Ltd.  All Rights Reserved.
   Quectel Wireless Solution Proprietary and Confidential.
   ---------------------------------------------------------------------------
 ******************************************************************************/
-#include <sys/socket.h>
-#include <sys/select.h>
-#include <sys/types.h>
-#include <net/if.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <endian.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
-#include "util.h"
 #include "QMIThread.h"
+#include "util.h"
 
 #define IFDOWN_SCRIPT "/etc/quectel/ifdown.sh"
-#define IFUP_SCRIPT "/etc/quectel/ifup.sh"
+#define IFUP_SCRIPT   "/etc/quectel/ifup.sh"
 
 static int ql_system(const char *shell_cmd)
 {
@@ -37,8 +36,7 @@ static int ql_system(const char *shell_cmd)
 uint32_t mask_to_prefix_v4(uint32_t mask)
 {
     uint32_t prefix = 0;
-    while (mask)
-    {
+    while (mask) {
         mask = mask & (mask - 1);
         prefix++;
     }
@@ -59,7 +57,7 @@ uint32_t broadcast_from_mask(uint32_t ip, uint32_t mask)
 const char *ipaddr_to_string_v4(in_addr_t ipaddr, char *buf, size_t size)
 {
     //    static char buf[INET6_ADDRSTRLEN] = {'\0'};
-    buf[0] = '\0';
+    buf[0]        = '\0';
     uint32_t addr = ipaddr;
     return inet_ntop(AF_INET, &addr, buf, size);
 }
@@ -91,7 +89,8 @@ void udhcpc_start(PROFILE_T *profile)
 
     // manage IPv4???
     // check rawip ???
-    snprintf(shell_cmd, sizeof(shell_cmd),
+    snprintf(shell_cmd,
+             sizeof(shell_cmd),
              " netiface=%s interface=%s mtu=%u ip=%s subnet=%s broadcast=%s router=%s"
              " domain=\"%s %s\" %s",
              profile->usbnet_adapter,
@@ -99,8 +98,10 @@ void udhcpc_start(PROFILE_T *profile)
              profile->ipv4.Mtu,
              ipaddr_to_string_v4(ntohl(profile->ipv4.Address), ip, sizeof(ip)),
              ipaddr_to_string_v4(ntohl(profile->ipv4.SubnetMask), subnet, sizeof(subnet)),
-             ipaddr_to_string_v4(ntohl(broadcast_from_mask(profile->ipv4.Address, profile->ipv4.SubnetMask)),
-                                 broadcast, sizeof(broadcast)),
+             ipaddr_to_string_v4(
+                 ntohl(broadcast_from_mask(profile->ipv4.Address, profile->ipv4.SubnetMask)),
+                 broadcast,
+                 sizeof(broadcast)),
              ipaddr_to_string_v4(ntohl(profile->ipv4.Gateway), router, sizeof(router)),
              ipaddr_to_string_v4(ntohl(profile->ipv4.DnsPrimary), domain1, sizeof(domain1)),
              ipaddr_to_string_v4(ntohl(profile->ipv4.DnsSecondary), domain2, sizeof(domain2)),
@@ -123,7 +124,8 @@ void udhcpc_stop(PROFILE_T *profile)
     if (NULL == getenv(IFDOWN_SCRIPT))
         return;
 
-    snprintf(shell_cmd, sizeof(shell_cmd),
+    snprintf(shell_cmd,
+             sizeof(shell_cmd),
              "netiface=%s interface=%s %s",
              profile->usbnet_adapter,
              profile->qmapnet_adapter ? profile->qmapnet_adapter : profile->usbnet_adapter,

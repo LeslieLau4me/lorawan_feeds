@@ -30,4 +30,3 @@ int at_tok_count(const char *in_line);
 int at_tok_scanf(const char *line, const char *fmt, ...);
 
 #endif /*AT_TOK_H */
-
