@@ -737,6 +737,7 @@ static int at_netdevstatus(int pdp, unsigned int *pV4Addr)
     *pV4Addr = 0;
 
     if (style_atc == EG800Q) {
+        int connect = 0;
         err = at_send_command_multiline("AT+QNETDEVSTATUS?", "+QNETDEVSTATUS:", &p_response);
         if (at_response_error(err, p_response))
             goto _error;
@@ -749,36 +750,40 @@ static int at_netdevstatus(int pdp, unsigned int *pV4Addr)
             // dbg_time("on_off=%d state=%d type=%d instance=%d", on_off, state, type, instance);
             if (state == 2) {
                 // *pV4Addr = 192 | (168 << 8) | (10 << 16) | (2 << 24);
+                connect = 1;
                 break;
             }
         }
 
-        asprintf(&cmd, "AT+CGPADDR=%d", pdp);
-        err = at_send_command_singleline(cmd, "+CGPADDR:", &p_response);
-        safe_free(cmd);
-        if (at_response_error(err, p_response))
-            goto _error;
+        if (connect) {
+            asprintf(&cmd, "AT+CGPADDR=%d", pdp);
+            err = at_send_command_singleline(cmd, "+CGPADDR:", &p_response);
+            safe_free(cmd);
+            if (at_response_error(err, p_response))
+                goto _error;
 
-        //+CGPADDR: 1,"10.201.80.91","2409:8930:4B3:41C7:F9B8:3D9B:A2F7:CA96"
-        for (ATLine *p_cur = p_response->p_intermediates; p_cur != NULL; p_cur = p_cur->p_next) {
-            char *ipv4 = NULL;
-            char *ipv6 = NULL;
-            int   _pdp = 0;
+            //+CGPADDR: 1,"10.201.80.91","2409:8930:4B3:41C7:F9B8:3D9B:A2F7:CA96"
+            for (ATLine *p_cur = p_response->p_intermediates; p_cur != NULL;
+                 p_cur         = p_cur->p_next) {
+                char *ipv4 = NULL;
+                char *ipv6 = NULL;
+                int   _pdp = 0;
 
-            err = at_tok_scanf(p_cur->line, "%d%s%s", &_pdp, &ipv4, &ipv6);
-            if (err < 2 || _pdp != pdp)
-                continue;
+                err = at_tok_scanf(p_cur->line, "%d%s%s", &_pdp, &ipv4, &ipv6);
+                if (err < 2 || _pdp != pdp)
+                    continue;
 
-            if (ipv4) {
-                int addr[4] = { 0, 0, 0, 0 };
+                if (ipv4) {
+                    int addr[4] = { 0, 0, 0, 0 };
 
-                sscanf(ipv4, "%d.%d.%d.%d", &addr[0], &addr[1], &addr[2], &addr[3]);
-                if (check_mcu_endian()) {
-                    *pV4Addr = (addr[0]) | (addr[1] << 8) | (addr[2] << 16) | (addr[3] << 24);
-                } else {
-                    *pV4Addr = (addr[0]) << 24 | (addr[1] << 16) | (addr[2] << 8) | (addr[3]);
+                    sscanf(ipv4, "%d.%d.%d.%d", &addr[0], &addr[1], &addr[2], &addr[3]);
+                    if (check_mcu_endian()) {
+                        *pV4Addr = (addr[0]) | (addr[1] << 8) | (addr[2] << 16) | (addr[3] << 24);
+                    } else {
+                        *pV4Addr = (addr[0]) << 24 | (addr[1] << 16) | (addr[2] << 8) | (addr[3]);
+                    }
+                    break;
                 }
-                break;
             }
         }
         goto _error;

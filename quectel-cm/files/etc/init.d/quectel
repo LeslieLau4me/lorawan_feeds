@@ -25,6 +25,7 @@ start_service() {
 	[ -n "$password" ] && [ -n "$auth" ] && procd_append_param command ${auth}
 	[ -n "$pincode" ] && procd_append_param command -p ${pincode}
 	[ "$ipv6" = "1" ] && procd_append_param command -6
+	#procd_append_param command -f /tmp/quectel.log
 
 	procd_set_param respawn 5 2 0
 	procd_close_instance
