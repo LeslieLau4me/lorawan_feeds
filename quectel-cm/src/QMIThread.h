@@ -251,6 +251,18 @@ typedef struct __PROFILE {
     RMNET_INFO                   rmnet_info;
 } PROFILE_T;
 
+typedef struct shm_data {
+    int conn_status;
+} shm_data_t;
+
+typedef struct conn_status_shm_ctx {
+    int         shm_fd;
+    shm_data_t *shm_data;
+} conn_status_shm_ctx_t;
+
+extern conn_status_shm_ctx_t conn_status_shm_ctx;
+#define CONN_STATUS_SHM_NAME "/conn_status_shm"
+
 #ifdef QUECTEL_QMI_MERGE
     #define MERGE_PACKET_IDENTITY         0x2c7c
     #define MERGE_PACKET_VERSION          0x0001

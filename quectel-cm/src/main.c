@@ -16,9 +16,13 @@
 
 #include "QMIThread.h"
 #include <dirent.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include "util.h"
 //#define CONFIG_PID_FILE_FORMAT "/var/run/quectel-CM-%s.pid" //for example /var/run/quectel-CM-wwan0.pid
@@ -33,7 +37,9 @@ extern int       ql_get_netcard_driver_info(const char *);
 extern int       ql_capture_usbmon_log(PROFILE_T *profile, const char *log_path);
 extern void      ql_stop_usbmon_log(PROFILE_T *profile);
 //UINT ifc_get_addr(const char *ifname);
-static int  s_link = -1;
+static int            s_link = -1;
+conn_status_shm_ctx_t conn_status_shm_ctx;
+
 static void usbnet_link_change(int link, PROFILE_T *profile)
 {
     if (s_link == link)
@@ -947,6 +953,39 @@ static int parse_user_input(int argc, char **argv, PROFILE_T *profile)
     return 1;
 }
 
+static int setup_shared_memory(conn_status_shm_ctx_t *ctx)
+{
+    ctx->shm_fd = shm_open(CONN_STATUS_SHM_NAME, O_CREAT | O_RDWR, 0666);
+    if (ctx->shm_fd == -1) {
+        dbg_time("shm_open error\n");
+        return EXIT_FAILURE;
+    }
+
+    if (ftruncate(ctx->shm_fd, sizeof(shm_data_t)) == -1) {
+        dbg_time("ftruncate error\n");
+        return EXIT_FAILURE;
+    }
+
+    ctx->shm_data =
+        mmap(NULL, sizeof(shm_data_t), PROT_READ | PROT_WRITE, MAP_SHARED, ctx->shm_fd, 0);
+    if (ctx->shm_data == MAP_FAILED) {
+        dbg_time("mmap error\n");
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static void cleanup_shared_memory(conn_status_shm_ctx_t *ctx)
+{
+    if (ctx->shm_data != MAP_FAILED || ctx->shm_data != NULL) {
+        munmap(ctx->shm_data, sizeof(shm_data_t));
+    }
+    if (ctx->shm_fd != -1) {
+        close(ctx->shm_fd);
+    }
+}
+
 int main(int argc, char *argv[])
 {
     int        ret;
@@ -969,6 +1008,12 @@ int main(int argc, char *argv[])
         }
     }
 
+    ret = setup_shared_memory(&conn_status_shm_ctx);
+    if (ret != EXIT_SUCCESS) {
+        dbg_time("setup_shared_memory failed\n");
+        return ret;
+    }
+
     signal(SIGINT, ql_sigaction);
     signal(SIGTERM, ql_sigaction);
     signal(SIGALRM, ql_sigaction);
@@ -983,5 +1028,6 @@ int main(int argc, char *argv[])
         fclose(logfilefp);
     }
 
+    cleanup_shared_memory(&conn_status_shm_ctx);
     return ret;
 }

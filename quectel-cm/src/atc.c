@@ -253,6 +253,16 @@ const struct qmi_device_ops atc_dev_ops = {
     .read   = atc_read_thread,
 };
 
+static void change_connect_status(int status)
+{
+    if (!conn_status_shm_ctx.shm_data)
+        return;
+
+    memset(conn_status_shm_ctx.shm_data, 0, sizeof(shm_data_t));
+    conn_status_shm_ctx.shm_data->conn_status = status;
+    system("/etc/init.d/failover network");
+}
+
 static int requestBaseBandVersion(PROFILE_T *profile)
 {
     int         retVal = -1;
@@ -898,6 +908,7 @@ static int requestQueryDataCall(UCHAR *pConnectionStatus, int curIpFamily)
 _error:
     safe_at_response_free(p_response);
     // dbg_time("%s err=%d, call_state=%d", __func__, err, *pConnectionStatus);
+    change_connect_status(*pConnectionStatus);
     return 0;
 }
 
@@ -923,6 +934,7 @@ static int requestDeactivateDefaultPDP(PROFILE_T *profile, int curIpFamily)
     safe_free(cmd);
 
     //dbg_time("%s err=%d", __func__, err);
+    change_connect_status(QWDS_PKT_DATA_DISCONNECTED);
     return 0;
 }
 
@@ -975,6 +987,7 @@ _error:
         unsigned char *v4 = (unsigned char *)&v4Addr;
 
         profile->ipv4.Address = v4Addr;
+        change_connect_status(QWDS_PKT_DATA_CONNECTED);
         dbg_time("%s %d.%d.%d.%d", __func__, v4[0], v4[1], v4[2], v4[3]);
     }
 
