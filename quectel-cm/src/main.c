@@ -641,7 +641,8 @@ static int qmi_main(PROFILE_T *profile)
                 if (read(fd, &triger_event, sizeof(triger_event)) == sizeof(triger_event)) {
                     switch (triger_event) {
                         case RIL_INDICATE_DEVICE_DISCONNECTED:
-                            usbnet_link_change(0, profile);
+                            // usbnet_link_change(0, profile);
+                            g_donot_exit_when_modem_hangup = 1;
                             goto __main_quit;
                             break;
 
