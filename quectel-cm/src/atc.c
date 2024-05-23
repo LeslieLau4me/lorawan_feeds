@@ -868,6 +868,7 @@ static int requestQueryDataCall(UCHAR *pConnectionStatus, int curIpFamily)
             *pConnectionStatus = QWDS_PKT_DATA_CONNECTED;
             //if (profile->ipv4.Address == v4Addr) {} //TODO
         }
+        change_connect_status(*pConnectionStatus);
         return err;
     }
 
