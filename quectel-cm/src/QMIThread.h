@@ -357,6 +357,8 @@ struct request_ops {
     int (*requestRegisterQos)(PROFILE_T *profile);
     int (*requestGetQosInfo)(PROFILE_T *profile);
     int (*requestGetCoexWWANState)(void);
+    int (*requestSimHotplug)(void);
+    int (*requestRebootModem)(void);
 };
 extern const struct request_ops qmi_request_ops;
 extern const struct request_ops mbim_request_ops;
@@ -392,6 +394,7 @@ extern FILE *logfilefp;
 extern int   debug_qmi;
 extern int   qmidevice_control_fd[2];
 extern int   g_donot_exit_when_modem_hangup;
+extern int   g_reboot_modem;
 extern void  update_resolv_conf(int iptype, const char *ifname, const char *dns1, const char *dns2);
 void update_ipv4_address(const char *ifname, const char *ip, const char *gw, unsigned prefix);
 void update_ipv6_address(const char *ifname, const char *ip, const char *gw, unsigned prefix);

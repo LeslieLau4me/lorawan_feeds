@@ -1280,6 +1280,49 @@ _error:
     return retVal;
 }
 
+static int requestSimHotplug(void)
+{
+    int         retVal = -1;
+    int         err;
+    ATResponse *p_response = NULL;
+    char       *cmd        = NULL;
+
+    asprintf(&cmd, "AT+QSIMDET=1,0");
+    err = at_send_command(cmd, &p_response);
+    safe_free(cmd);
+
+    if (at_response_error(err, p_response))
+        goto _error;
+
+    asprintf(&cmd, "AT+QSIMSTAT=1");
+    err = at_send_command(cmd, &p_response);
+    safe_free(cmd);
+
+    if (at_response_error(err, p_response))
+        goto _error;
+
+    retVal = 0;
+_error:
+    safe_at_response_free(p_response);
+    return retVal;
+}
+
+static int requestRebootModem(void)
+{
+    int         retVal = -1;
+    int         err;
+    ATResponse *p_response = NULL;
+
+    err = at_send_command("AT+CFUN=1,1", &p_response);
+    if (at_response_error(err, p_response))
+        goto _error;
+
+    retVal = 0;
+_error:
+    safe_at_response_free(p_response);
+    return retVal;
+}
+
 const struct request_ops atc_request_ops = {
     .requestBaseBandVersion      = requestBaseBandVersion,
     .requestGetSIMStatus         = requestGetSIMStatus,
@@ -1294,4 +1337,6 @@ const struct request_ops atc_request_ops = {
     .requestGetSignalInfo        = requestGetSignalInfo,
     .requestGetICCID             = requestGetICCID,
     .requestGetIMSI              = requestGetIMSI,
+    .requestSimHotplug           = requestSimHotplug,
+    .requestRebootModem          = requestRebootModem,
 };

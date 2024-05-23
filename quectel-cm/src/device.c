@@ -355,6 +355,7 @@ BOOL qmidevice_detect(char *qmichannel, char *usbnet_adapter, unsigned bufsize, 
                     case 0x0901:                       //EC200U
                     case 0x0904:                       //EC200G
                     case 0x8101:                       //RG801H
+                    case 0x6007:                       //EG800Q/EG800G
                         atIntf = 2;
                         break;
                     case 0x0900: //RG500U
@@ -364,7 +365,7 @@ BOOL qmidevice_detect(char *qmichannel, char *usbnet_adapter, unsigned bufsize, 
                     case 0x6005: //EC200A
                     case 0x6002: //EC200S
                     case 0x6001: //EC100Y
-                    case 0x6007: //EG915Q-NA in ECM mode, it also could set atIntf to 4
+                        // case 0x6007: //EG915Q-NA in ECM mode, it also could set atIntf to 4
                         atIntf = 3;
                         break;
                     default:

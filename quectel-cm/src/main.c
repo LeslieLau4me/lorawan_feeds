@@ -32,6 +32,7 @@ int              debug_qmi = 0;
 int              qmidevice_control_fd[2];
 static int       signal_control_fd[2];
 int              g_donot_exit_when_modem_hangup = 0;
+int              g_reboot_modem                 = 0;
 extern int       ql_ifconfig(int argc, char *argv[]);
 extern int       ql_get_netcard_driver_info(const char *);
 extern int       ql_capture_usbmon_log(PROFILE_T *profile, const char *log_path);
@@ -359,6 +360,10 @@ static int qmi_main(PROFILE_T *profile)
             profile->loopback_state = 0;       //wait for RIL_UNSOL_LOOPBACK_CONFIG_IND
     }
 
+    /* enable SIM hotplug */
+    if (request_ops->requestSimHotplug)
+        request_ops->requestSimHotplug();
+
     if (request_ops->requestGetSIMStatus) {
         qmierr = request_ops->requestGetSIMStatus(&SIMStatus);
 
@@ -443,6 +448,15 @@ static int qmi_main(PROFILE_T *profile)
 
             if ((revents & POLLIN) == 0)
                 continue;
+
+            if (g_reboot_modem && request_ops->requestRebootModem) {
+                if (request_ops->requestRebootModem() == 0) {
+                    g_reboot_modem                 = 0;
+                    g_donot_exit_when_modem_hangup = 1;
+                    main_send_event_to_qmidevice(RIL_REQUEST_QUIT);
+                    goto __main_quit;
+                }
+            }
 
             if (fd == signal_control_fd[1]) {
                 if (read(fd, &signo, sizeof(signo)) == sizeof(signo)) {

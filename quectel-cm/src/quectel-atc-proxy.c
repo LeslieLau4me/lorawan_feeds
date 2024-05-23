@@ -94,6 +94,7 @@ static uint8_t               atc_buf[4096];
 static int                   asr_style_atc = 0;
 extern int                   asprintf(char **s, const char *fmt, ...);
 static ATC_PROXY_CONNECTION *current_client_fd = NULL;
+int                          g_reboot_modem    = 0;
 
 static void dump_atc(uint8_t *pATC, int fd, int size, const char flag)
 {
