@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 2.4)
 project(quectel-CM) 
 add_definitions(-Wall -Wextra -Werror -O1)
 option(USE_QRTR "Enable QRTR" OFF) 
+option(CM_DEBUG "Enable debug" OFF)
 
 set( QL_CM_SRC
      QmiWwanCM.c GobiNetCM.c main.c QCQMUX.c QMIThread.c util.c qmap_bridge_mode.c mbim-cm.c device.c
@@ -14,6 +15,10 @@ if(USE_QRTR)
 add_definitions(-DCONFIG_QRTR)
 set( QRTR_SRC qrtr.c rmnetctl.c)
 endif() 
+
+if(CM_DEBUG)
+add_definitions(-DCM_DEBUG)
+endif()
 
 add_executable(quectel-CM ${QL_CM_SRC} ${QRTR_SRC})
 target_link_libraries(quectel-CM PUBLIC pthread) 
