@@ -42,23 +42,14 @@ static char   gateway_eui[MAX_GATEWAY_ID + 1] = { 0 };
 static string local_ip;
 static Base64 base_64_obj;
 
-map<string, uint8_t> map_dr = {
-    { "SF7", 7 }, { "SF8", 8 }, { "SF9", 9 }, { "SF10", 10 }, { "SF11", 11 }, { "SF12", 12 },
-};
-
-map<string, uint16_t> map_bw = {
-    { "BW125", 125 },
-    { "BW250", 250 },
-    { "BW125", 500 },
-};
-
 queue<string>   queue_downlink;
 pthread_mutex_t queue_downlink_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+using udp_pkt_cb = int (*)(evutil_socket_t fd);
 
 static int response_pkt_push_data(evutil_socket_t fd);
 static int response_pkt_pull_data(evutil_socket_t fd);
 static int recieve_pkt_tx_ack(evutil_socket_t fd);
-typedef int (*udp_pkt_cb)(evutil_socket_t fd);
 
 map<int, udp_pkt_cb> map_udp_pkt_cb = {
     { PKT_PUSH_DATA, response_pkt_push_data },
@@ -244,28 +235,17 @@ static void on_publish(struct mosquitto *mosq, void *obj, int mid)
 
 static int parse_uplink_datr(string datr, uint8_t &dr, uint16_t &bw)
 {
-    bool dr_match = false;
-    bool bw_match = false;
-    for (const auto &iter : map_dr) {
-        if (datr.find(iter.first) != string::npos) {
-            dr       = iter.second;
-            dr_match = true;
-            break;
-        }
-    }
-    for (const auto &iter : map_bw) {
-        if (datr.find(iter.first) != string::npos) {
-            bw       = iter.second;
-            bw_match = true;
-            break;
-        }
-    }
-    if (dr_match == false || bw_match == false) {
-        std::cout << "WARN: wrong daterate or bw_match :" << datr << std::endl;
-        return -1;
-    }
+    int x0, x1;
+    int x;
 
-    return 0;
+    // 使用 sscanf 函数来提取 "SF" 后面的两位数字和 "BW" 后面的三位数字
+    x = sscanf(datr.c_str(), "SF%2dBW%3d", &x0, &x1);
+    if (x == 2) {
+        dr = x0;
+        bw = x1;
+        return 0;
+    }
+    return -1;
 }
 
 static void publish_chirpstack_format_uplink_json(const json &json_up)
@@ -287,6 +267,7 @@ static void publish_chirpstack_format_uplink_json(const json &json_up)
         }
         json_pub["modulation"] = rxpk["modu"];
         if (rxpk["datr"].is_string()) {
+
             uint8_t  dr;
             uint16_t bw;
             string   datr = rxpk["datr"];
