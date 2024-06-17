@@ -15,7 +15,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=ssh://git@gitlab.minew.net:2022/gateway/openwrt/packages/gateway_package_sx1302_hal.git
-PKG_SOURCE_VERSION:=5ffbcdb8d55f5412fec134f3d52de109a83eaad8
+PKG_SOURCE_VERSION:=7682ffd4272cfb173ff3435ddefecf0d9498a7be
 PKG_MAINTAINER:=Minew
 PKG_LICENSE_FILES:=LICENSE
 #PKG_BUILD_DIR:=$(BUILD_DIR)/sx1302_hal-$(PKG_VERSION)
@@ -89,11 +89,23 @@ define Package/sx1302_hal_wrt/install
 	$(INSTALL_DIR) $(1)/etc/lora_pkt_fwd
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/packet_forwarder/global_conf.json.sx1250.* $(1)/etc/lora_pkt_fwd
 ifeq ($(CONFIG_LORA_SX1302_HAL_US915),y)
+ifeq ($(CONFIG_LORA_SX1302_HAL_GPS),y)
 	cp $(1)/etc/lora_pkt_fwd/global_conf.json.sx1250.US915 $(1)/etc/lora_pkt_fwd/global_conf.json
+else
+	cp $(1)/etc/lora_pkt_fwd/global_conf.json.sx1250.US915.no_gps $(1)/etc/lora_pkt_fwd/global_conf.json
+endif
 else ifeq ($(CONFIG_LORA_SX1302_HAL_EU868),y)
+ifeq ($(CONFIG_LORA_SX1302_HAL_GPS),y)
 	cp $(1)/etc/lora_pkt_fwd/global_conf.json.sx1250.EU868 $(1)/etc/lora_pkt_fwd/global_conf.json
+else
+	cp $(1)/etc/lora_pkt_fwd/global_conf.json.sx1250.EU868.no_gps $(1)/etc/lora_pkt_fwd/global_conf.json
+endif
 else ifeq ($(CONFIG_LORA_SX1302_HAL_CN490),y)
+ifeq ($(CONFIG_LORA_SX1302_HAL_GPS),y)
 	cp $(1)/etc/lora_pkt_fwd/global_conf.json.sx1250.CN490 $(1)/etc/lora_pkt_fwd/global_conf.json
+else
+	cp $(1)/etc/lora_pkt_fwd/global_conf.json.sx1250.CN490.no_gps $(1)/etc/lora_pkt_fwd/global_conf.json
+endif
 endif
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/tools/reset_lgw.sh $(1)/usr/bin

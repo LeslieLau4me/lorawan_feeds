@@ -20,4 +20,12 @@ choice
             Select this option for CN490 configuration.
 endchoice
 
+config LORA_SX1302_HAL_GPS
+    prompt "Include GPS in SX1302 HAL"
+    bool
+    depends on PACKAGE_sx1302_hal_wrt
+    help
+        If you want to include GPS support in the SX1302 HAL package, select this option.
+
+
 endif
