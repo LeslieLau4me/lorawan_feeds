@@ -1,0 +1,290 @@
+# Version: 0.9.4
+
+# 取消部分代码的格式化
+# /* clang-format off */
+# void unformatted_code;
+# /* clang-format on */
+
+# 代码格式在LLVM标准的基础上进行定制
+Language: Cpp
+BasedOnStyle: LLVM
+
+# 缩进长度为4个单位
+IndentWidth: 4
+
+# 不适用Tab
+UseTab: Never
+
+# 大括号对齐方式
+# someLongFunction(arg1,
+#                  arg2);
+AlignAfterOpenBracket: Align
+
+# 连续赋值对齐方式
+# int aaaa = 12;
+# int b    = 23;
+# int ccc  = 23;
+AlignConsecutiveAssignments: true
+
+# 连续变量定义对齐方式
+# int         aaaa = 12;
+# float       b = 23;
+# std::string ccc = 23;
+AlignConsecutiveDeclarations: true
+
+# 宏定义对齐方式 (必须将`clang-format`升级到 9.0 之后)
+# #define SHORT_NAME       42
+# #define LONGER_NAME      0x007f
+# #define EVEN_LONGER_NAME (2)
+# #define foo(x)           (x * x)
+# #define bar(y, z)        (y + z)
+AlignConsecutiveMacros: true
+
+# 反斜杠对齐方式
+# #define A   \
+#   int aaaa; \
+#   int b;    \
+#   int dddddddddd;
+AlignEscapedNewlines: Left
+
+# 操作数对齐方式
+# int aaa = bbbbbbbbbbbbbbb +
+#           ccccccccccccccc;
+AlignOperands: true
+
+# 同行注释对齐方式
+# int a;     // My comment a
+# int b = 2; // comment  b
+AlignTrailingComments: true
+
+# 函数定义参数对齐
+# true:
+# void myFunction(
+#     int a, int b, int c, int d, int e);
+#
+# false:
+# void myFunction(int a,
+#                 int b,
+#                 int c,
+#                 int d,
+#                 int e);
+AllowAllParametersOfDeclarationOnNextLine: false
+
+# 超短代码块格式化成单行
+#
+# while (true) { continue; }
+AllowShortBlocksOnASingleLine: true
+
+# 超短函数格式化成单行
+#
+# void f() {}
+# void f2() {
+#   bar2();
+# }
+AllowShortFunctionsOnASingleLine: Empty
+
+# 短case语句格式化成单行
+#
+# true:                             false:
+# switch (a) {              vs.     switch (a) {
+# case 1: x = 1; break;             case 1:
+# case 2: return;                     x = 1;
+# }                                   break;
+#                                   case 2:
+#                                     return;
+#                                   }
+AllowShortCaseLabelsOnASingleLine: false
+
+# 超短while循环语句是否格式化成单行
+# if true, while (true) continue;
+AllowShortLoopsOnASingleLine: true
+
+# 多行字符串对齐方式
+# aaaa = "bbbb"
+#        "cccc";
+AlwaysBreakBeforeMultilineStrings: false
+
+# 函数参数为带参函数时，其参数对齐方式
+# void f() {
+#     f(aaaaaaaaaaaaaaaaaaaa,
+#       aaaaaaaaaaaaaaaaaaaa,
+#       aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa);
+# }
+BinPackParameters: false
+
+# 函数参数对齐方式
+# void f(int aaaaaaaaaaaaaaaaaaaa,
+#        int aaaaaaaaaaaaaaaaaaaa,
+#        int aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa) {}
+BinPackArguments: false
+
+# Break
+BreakBeforeBinaryOperators: None
+
+# 右大括号风格
+# try {
+#     foo();
+# } catch () {
+# }
+#
+# /* Single line function */
+# void foo() { bar(); }
+#
+# class foo
+# {
+# };
+#
+# /* if statement */
+# if (foo()) {
+# } else {
+# }
+# enum X : int { A, B };
+BreakBeforeBraces: Linux
+
+# 三目操作符风格
+# true:
+# veryVeryVeryVeryVeryVeryVeryVeryVeryLongDescription
+#     ? firstValue
+#     : SecondValueVeryVeryVeryVeryLong;
+#
+# false:
+# veryVeryVeryVeryVeryVeryVeryVeryVeryLongDescription ?
+#     firstValue :
+#     SecondValueVeryVeryVeryVeryLong;
+BreakBeforeTernaryOperators: false
+
+# 代码列数限制
+ColumnLimit: 100
+
+# 大括号空格风格
+#
+# true:                                  false:
+# vector<int> x{1, 2, 3, 4};     vs.     vector<int> x{ 1, 2, 3, 4 };
+# vector<T> x{{}, {}, {}, {}};           vector<T> x{ {}, {}, {}, {} };
+# f(MyMap[{composite, key}]);            f(MyMap[{ composite, key }]);
+# new int[3]{1, 2, 3};                   new int[3]{ 1, 2, 3 };
+Cpp11BracedListStyle: false
+
+# switch-case语句对齐方式
+#
+# false:                      true:
+# switch (fool) {     vs.     switch (fool) {
+# case 1:                         case 1:
+#   bar();                            bar();
+#   break;                            break;
+# default:                        default:
+#   plop();                           plop();
+# }                           }
+IndentCaseLabels: true
+
+# 返回值换行风格函数对齐方式
+#
+# true:
+# LooooooooooooooooooooooooooongReturnType
+#     LooooooooooooooooooongFunctionDeclaration();
+#
+# false:
+# LooooooooooooooooooooooooooongReturnType
+# LooooooooooooooooooongFunctionDeclaration();
+IndentWrappedFunctionNames: false
+
+# 宏定义对齐风格
+#
+# #if FOO
+# #  if BAR
+# #    include <foo>
+# #  endif
+# #endif
+#IndentPPDirectives: AfterHash
+IndentPPDirectives: BeforeHash
+
+# 允许最大行
+#
+# MaxEmptyLinesToKeep: 1     vs.     MaxEmptyLinesToKeep: 0
+# int f() {                          int f() {
+#   int = 1;                             int i = 1;
+#                                        i = foo();
+#   i = foo();                           return i;
+#                                    }
+#   return i;
+# }
+MaxEmptyLinesToKeep: 1
+
+# 指针对齐方式
+#
+# int *a;
+PointerAlignment: Right
+
+# 注释自动换行
+#
+# false:
+# // veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongComment with plenty of information
+# /* second veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongComment with plenty of information */
+#
+# true:
+# // veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongComment with plenty of
+# // information
+# /* second veryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongComment with plenty of
+#  * information */
+ReflowComments: false
+
+# 包含w文件是否按字母排序
+#
+# false:                      true:
+# #include "b.h"      vs.     #include "a.h"
+# #include "a.h"              #include "b.h"
+SortIncludes: true
+
+# 强制转化符号前后空格方式
+#
+# true:                 false:
+# (int) i;      vs.     (int)i;
+SpaceAfterCStyleCast: false
+
+# 赋值符号前后空格方式
+#
+# true:                   false:
+# int a = 5;      vs.     int a= 5;
+# a += 42;                a+= 42;
+SpaceBeforeAssignmentOperators: true
+
+# 关键字后的空格方式
+#
+#   void f1() {
+#   if (true) {
+#     f2();
+#   }
+# }
+SpaceBeforeParens: ControlStatements
+
+# 无参函数调用时的空格方式
+#
+# true:                                false:
+# void f( ) {                    vs.   void f() {
+#   int x[] = {foo( ), bar( )};          int x[] = {foo(), bar()};
+#   if (true) {                          if (true) {
+#     f( );                                f();
+#   }                                    }
+# }                                    }
+SpaceInEmptyParentheses: false
+
+# 中括号空格方式
+#
+# true:                   false:
+# int a[ 5 ];     vs.     int a[5];
+SpacesInSquareBrackets: false
+
+# 函数参数大括号前后空格方式
+#
+# true:                                false:
+# t f( Deleted & ) & = delete;   vs.   t f(Deleted &) & = delete;
+SpacesInParentheses: false
+
+# 强制转换符号空格方式
+#
+# true:                      false:
+# x = ( int32 )y     vs.     x = (int32)y
+SpacesInCStyleCastParentheses: false
+# 以下参数切勿使用，其异常原因未解
+# AllowShortIfStatementsOnASingleLine
+# SpaceBeforeRangeBasedForLoopColon
