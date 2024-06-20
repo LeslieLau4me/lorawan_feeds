@@ -1287,7 +1287,8 @@ static int requestSimHotplug(void)
     ATResponse *p_response = NULL;
     char       *cmd        = NULL;
 
-    asprintf(&cmd, "AT+QSIMDET=1,0");
+    /* 设置SIM卡插入时检测引脚为高电平 */
+    asprintf(&cmd, "AT+QSIMDET=1,1");
     err = at_send_command(cmd, &p_response);
     safe_free(cmd);
 

@@ -404,7 +404,7 @@ static const char *readline()
     s_ATBufferCur = p_eol + 1; /* this will always be <= p_read,    */
                                /* and there will be a \0 at *p_read */
     /* the status of the SIM card is inserted. reboot to take effect */
-    if (!strcmp(ret, "+QSIMSTAT: 1,0")) {
+    if (!strcmp(ret, "+QSIMSTAT: 1,1")) {
         LOGD("reboot modem to take effect");
         g_reboot_modem = 1;
     }
