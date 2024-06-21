@@ -56,7 +56,7 @@ class LteSerialPort
         { AT_GET_RSSI, CMD_GET_RSSI },           { AT_GET_SIM_STAT, CMD_GET_SIM_STAT },
         { AT_GET_QNET_STAT, CMD_GET_QNET_STAT }, { AT_SET_ATE0, CMD_SET_ATE0 },
         { AT_CONN_USB, CMD_CONNECT_USB },        { AT_REG_NET, CMD_REGISTER_NETWORK },
-        { AT_GET_CPIN, CMD_GET_CPIN },
+        { AT_GET_CPIN, CMD_GET_CPIN },           { AT_SET_SIM_DET, CMD_SET_SIM_DET },
     };
 
     string err_msg;
@@ -104,7 +104,7 @@ int LteSerialPort::send_at_cmd_to_serialport(string at_cmd)
     int ret = -1;
     int len = 0;
     this->str_recv.clear();
-    // tcflush(fd, TCIOFLUSH);
+    tcflush(fd, TCIOFLUSH);
     LOG(INFO) << "Send AT:" << at_cmd;
     ret = write(this->fd, at_cmd.c_str(), at_cmd.length());
     if (ret < 0) {
@@ -298,6 +298,10 @@ int LteSerialPort::send_at_get_sim_stat(void)
     if (this->send_at_cmd_to_serialport(this->at_map[AT_SET_ATE0]) < 0) {
         return -1;
     }
+    /* Set (U)SIM card detection pin level as high when (U)SIM card is inserted. */
+    if (this->send_at_cmd_to_serialport(this->at_map[AT_SET_SIM_DET]) < 0) {
+        return -1;
+    }
     if (this->send_at_cmd_to_serialport(this->at_map[AT_GET_CPIN]) < 0) {
         return -1;
     }
@@ -311,7 +315,7 @@ int LteSerialPort::send_at_get_sim_stat(void)
         if (this->send_at_cmd_to_serialport(this->at_map[AT_GET_SIM_STAT]) < 0) {
             return -1;
         }
-        if (this->str_recv.find("1,") != string::npos) {
+        if (this->str_recv.find(",1") != string::npos) {
             status = true;
         } else {
             if (tmp.find("REA") != string::npos) {
