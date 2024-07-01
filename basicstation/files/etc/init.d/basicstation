@@ -285,7 +285,18 @@ check_wlan0() {
   return 1
 }
 
+check_chip_id() {
+    # 获取 /sys/class/spidev/ 目录下的 spi 设备列表,取第一个
+    spi_device=$(ls /sys/class/spidev/ | awk '{print $1;}')
+
+    cd /usr/bin
+    # 执行 chip_id 命令并读取输出
+    output=$(./chip_id -d /dev/$spi_device)
+    # echo $output
+}
+
 start_service() {
+    check_chip_id
 	load_lora_mode
 	case "$wm" in
 	BAST)

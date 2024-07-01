@@ -61,6 +61,7 @@ check_chip_id() {
 }
 
 start_service() {
+    check_chip_id
     load_lora_mode
     if [ "$wm" = "PKFD" ] || [ "$wm" = "BRDG" ]; then
         timeout=300
