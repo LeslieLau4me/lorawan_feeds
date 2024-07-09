@@ -1,0 +1,4 @@
+[submodule "lora-sx1302-hal/lora-sx1302-hal-src"]
+	path = lora-sx1302-hal/lora-sx1302-hal-src
+	url = ssh://git@gitlab.minew.net:2022/gateway/openwrt/packages/gateway_package_sx1302_hal.git
+	branch = mg6-master

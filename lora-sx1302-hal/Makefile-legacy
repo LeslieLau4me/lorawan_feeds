@@ -8,10 +8,17 @@ include $(TOPDIR)/rules.mk
 PKG_NAME:=sx1302_hal_wrt
 PKG_VERSION:=2.1.2
 PKG_RELEASE:=1
-PKG_LICENSE:=GPLv3
-PKG_MAINTAINER:=Minew
 
-PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
+# PKG_SOURCE_URL:=https://codeload.github.com/LXGMAX/sx1302_hal_wrt/tar.gz/V$(PKG_VERSION)?
+# PKG_SOURCE:=sx1302_hal_wrt-$(PKG_VERSION).tar.gz
+# PKG_HASH:=d3824f2b0401cfe0dbfd0fdcbd3612b9af2d3e94509d67f96d072acd835219ed
+
+PKG_SOURCE_PROTO:=git
+PKG_SOURCE_URL:=ssh://git@gitlab.minew.net:2022/gateway/openwrt/packages/gateway_package_sx1302_hal.git
+PKG_SOURCE_VERSION:=0c924cf24470e8677b6916c54b5f2078e9e757b3
+PKG_MAINTAINER:=Minew
+PKG_LICENSE_FILES:=LICENSE
+#PKG_BUILD_DIR:=$(BUILD_DIR)/sx1302_hal-$(PKG_VERSION)
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -30,13 +37,6 @@ endef
 
 define Package/sx1302_hal_wrt/config
     source "$(SOURCE)/Config.in"
-endef
-
-define Build/Prepare
-	mkdir -p $(PKG_BUILD_DIR)
-	rsync -avh --delete --exclude=".git**" ./lora-sx1302-hal-src/* $(PKG_BUILD_DIR)/
-	$(CP) ./files/* $(PKG_BUILD_DIR)/
-	$(call Build/Prepare/Default)
 endef
 
 CFLAGS = $(TARGET_CFLAGS)
