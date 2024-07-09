@@ -11,11 +11,19 @@ PKG_NAME:=basicstation
 PKG_VERSION:=2.0.7
 PKG_RELEASE:=$(AUTORELEASE)
 
+# PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+# PKG_SOURCE_URL:=https://codeload.github.com/lorabasics/basicstation/tar.gz/v$(PKG_VERSION)?
+# PKG_HASH:=7e285de94bae1174b4c3496fc3ab15fe67c72f92c0693d2320bafc654a9dfb43
+
+PKG_SOURCE_PROTO:=git
+PKG_SOURCE_URL:=ssh://git@gitlab.minew.net:2022/gateway/openwrt/packages/gateway_package_basicstation.git
+PKG_SOURCE_VERSION:=9be661cd4f921f07aa57c4c56478210db2ffae32
+
 PKG_MAINTAINER:=Marcus Schref <mschref@tdt.de>
 PKG_LICENSE:=BSD-3-Clause
 PKG_LICENSE_FILES:=LICENSE
 
-PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
+PKG_BUILD_DEPENDS:=lora-sx1302-hal 
 
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/cmake.mk
@@ -25,7 +33,7 @@ define Package/basicstation
   CATEGORY:=Network
   SUBMENU:=LoRaWAN
   TITLE:=LoRa Basic Station
-  DEPENDS:=+kmod-spi-dev +liburcu +libmbedtls +sx1302_hal_wrt
+  DEPENDS:=+kmod-spi-dev +liburcu +libmbedtls
 endef
 
 define Package/basicstation/description
@@ -37,14 +45,11 @@ define Package/basicstation/conffiles
 endef
 
 define Build/Prepare
-	mkdir -p $(PKG_BUILD_DIR)
-	rsync -avh --delete --exclude=".git**" ./basicstation-src/* $(PKG_BUILD_DIR)/
+	$(call Build/Prepare/Default)
 	rm -rf $(PKG_BUILD_DIR)/deps/
 	rm -f $(PKG_BUILD_DIR)/makefile
 	rm -f $(PKG_BUILD_DIR)/makefile.s2core
 	rm -f $(PKG_BUILD_DIR)/setup.gmk
-	$(CP) ./files/* $(PKG_BUILD_DIR)/
-	$(call Build/Prepare/Default)
 endef
 
 define Package/basicstation/install
