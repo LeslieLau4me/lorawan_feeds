@@ -162,8 +162,6 @@ static void get_hardware_region_info(string &region)
     json     loacl_json;
     ifstream json_if_region_conf;
     string   current_region;
-    int      freq   = 0;
-    bool     b_find = false;
     /*global_conf.json 出厂默认的频率值，由此判断频段*/
     map<int, string> freq_region = {
         { 904300000, "US915" },
@@ -181,44 +179,8 @@ static void get_hardware_region_info(string &region)
         if (iter.second == current_region) {
             region = current_region;
             LOG(INFO) << "region had been set: " << current_region;
-            b_find = true;
             break;
         }
-    }
-
-    if (b_find == false) {
-        json     write_json;
-        json     global_conf_json;
-        ifstream json_if_glb_conf;
-        json_if_glb_conf.open(LORAWAN_GLOBAL_CONF_DEFAULT);
-        ostringstream ostrstr;
-        ostrstr << json_if_glb_conf.rdbuf();
-        json_if_glb_conf.close();
-        string buffer     = ostrstr.str();
-        size_t length     = buffer.length() + 1;
-        char  *new_buffer = new char[length];
-        if (!new_buffer) {
-            LOG(ERROR) << "Failed to new a memory.";
-            return;
-        }
-        bzero(new_buffer, length);
-        memcpy(new_buffer, buffer.c_str(), length);
-        LOG(INFO) << "remove: /**/";
-        remove_comments(new_buffer, "/*", "*/");
-        LOG(INFO) << "remove: //";
-        remove_comments(new_buffer, "//", "\n");
-        global_conf_json = json::parse(new_buffer);
-        global_conf_json["SX130x_conf"]["radio_0"]["freq"].get_to(freq);
-        if (freq_region.count(freq)) {
-            region                       = freq_region[freq];
-            write_json["lorawan_region"] = region;
-            LOG(INFO) << "global freq: " << freq << " region: " << region;
-            ofstream json_ofstream;
-            json_ofstream.open(LORAWAN_REGION_CONF_DEFAULT);
-            json_ofstream << write_json.dump(4) << endl;
-            json_ofstream.close();
-        }
-        delete new_buffer;
     }
 }
 
