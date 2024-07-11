@@ -117,7 +117,14 @@ endif
 	$(INSTALL_DATA) ./files/usr/bin/led_control.sh $(1)/usr/bin/led_control.sh
 	$(INSTALL_DATA) ./files/usr/bin/lte_rst.sh $(1)/usr/bin/lte_rst.sh
 
-
+	$(INSTALL_DIR) $(1)/etc/lorawan_region
+ifeq ($(CONFIG_LORA_SX1302_HAL_US915),y)
+	$(INSTALL_DATA) ./files/lorawan_region_us915.conf $(1)/etc/lorawan_region/
+else ifeq ($(CONFIG_LORA_SX1302_HAL_EU868),y)
+	$(INSTALL_DATA) ./files/lorawan_region_eu868.conf $(1)/etc/lorawan_region/
+else ifeq ($(CONFIG_LORA_SX1302_HAL_CN490),y)
+	$(INSTALL_DATA) ./files/lorawan_region_cn490.conf $(1)/etc/lorawan_region/
+endif
 	chmod +x $(1)/etc/init.d/packet_forwarder
 	chmod +x $(1)/usr/bin/led_control.sh
 	chmod +x $(1)/usr/bin/lte_rst.sh

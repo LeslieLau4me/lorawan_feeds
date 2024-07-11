@@ -46,9 +46,6 @@ define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/etc/lorawan_filter
 	$(INSTALL_DATA) ./files/lorawan_filter.conf $(1)/etc/lorawan_filter/
 
-	$(INSTALL_DIR) $(1)/etc/lorawan_region
-	$(INSTALL_DATA) ./files/lorawan_region.conf $(1)/etc/lorawan_region/
-
 	$(INSTALL_DIR) $(1)/etc/lorawan_workmode
 	$(INSTALL_DATA) ./files/lorawan_workmode.conf $(1)/etc/lorawan_workmode/
 
